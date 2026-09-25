@@ -171,16 +171,6 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
             segment_count, project_path
         );
 
-        crate::telemetry::async_capture_event(
-            &app_for_recovery,
-            crate::telemetry::AnalyticsEvent::RecordingRecovered {
-                trigger: "app_startup",
-                recovered_duration_secs: estimated_duration_secs,
-                segments_recovered: segment_count as u32,
-                validation_took_ms,
-            },
-        );
-
         let display_output_path = match &recovered.meta {
             StudioRecordingMeta::SingleSegment { segment } => {
                 segment.display.path.to_path(&recovered.project_path)
@@ -213,15 +203,6 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
         Ok(project_path)
     })
     .await;
-    if let Err(reason) = &result {
-        crate::telemetry::async_capture_event(
-            &app,
-            crate::telemetry::AnalyticsEvent::RecordingRecoveryFailed {
-                trigger: "app_startup",
-                reason: reason.clone(),
-            },
-        );
-    }
     result
 }
 

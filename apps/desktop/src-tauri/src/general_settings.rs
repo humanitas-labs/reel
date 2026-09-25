@@ -1,4 +1,3 @@
-use crate::updates::UpdateChannel;
 use crate::window_exclusion::WindowExclusion;
 use scap_targets::DisplayId;
 use serde::{Deserialize, Serialize};
@@ -157,24 +156,14 @@ pub struct WindowPosition {
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GeneralSettingsStore {
-    #[serde(default = "uuid::Uuid::new_v4")]
-    pub instance_id: Uuid,
-    #[serde(default)]
-    pub upload_individual_files: bool,
     #[serde(default)]
     pub hide_dock_icon: bool,
-    #[serde(default)]
-    pub auto_create_shareable_link: bool,
     #[serde(default = "default_true")]
     pub enable_notifications: bool,
-    #[serde(default)]
-    pub disable_auto_open_links: bool,
     #[serde(default = "default_true")]
     pub has_completed_startup: bool,
     #[serde(default)]
     pub theme: AppTheme,
-    #[serde(default)]
-    pub commercial_license: Option<CommercialLicense>,
     #[serde(default)]
     pub last_version: Option<String>,
     #[serde(default)]
@@ -188,8 +177,6 @@ pub struct GeneralSettingsStore {
         rename = "custom_cursor_capture2"
     )]
     pub custom_cursor_capture: bool,
-    #[serde(default = "default_server_url")]
-    pub server_url: String,
     #[serde(default)]
     pub recording_countdown: Option<u32>,
     #[serde(
@@ -213,10 +200,6 @@ pub struct GeneralSettingsStore {
     #[serde(default = "default_excluded_windows")]
     pub excluded_windows: Vec<WindowExclusion>,
     #[serde(default)]
-    pub delete_instant_recordings_after_upload: bool,
-    #[serde(default = "default_instant_mode_max_resolution")]
-    pub instant_mode_max_resolution: u32,
-    #[serde(default)]
     pub default_project_name_template: Option<String>,
     #[serde(default = "default_crash_recovery_recording")]
     pub crash_recovery_recording: bool,
@@ -236,8 +219,6 @@ pub struct GeneralSettingsStore {
     pub camera_window_positions_by_monitor_name: BTreeMap<String, WindowPosition>,
     #[serde(default = "default_true")]
     pub has_completed_onboarding: bool,
-    #[serde(default = "default_true")]
-    pub enable_telemetry: bool,
     #[serde(default)]
     pub out_of_process_muxer: bool,
     #[serde(default)]
@@ -252,13 +233,6 @@ pub struct GeneralSettingsStore {
     /// update, since a new ort/wgpu/driver stack may have fixed the crash).
     #[serde(default)]
     pub camera_blur_disabled_by_crash: Option<String>,
-    #[serde(default)]
-    pub update_channel: UpdateChannel,
-    /// Run the experimental gpui-native app (`cap-gpui`) *instead of* this one:
-    /// while enabled, startup hands off to it and exits, and the native app's
-    /// own Experimental page hands back. See `gpui_app.rs`.
-    #[serde(default)]
-    pub enable_gpui_app: bool,
 }
 
 fn default_enable_native_camera_preview() -> bool {
@@ -271,10 +245,6 @@ fn no(_: &bool) -> bool {
 
 fn default_true() -> bool {
     true
-}
-
-fn default_instant_mode_max_resolution() -> u32 {
-    cap_recording::DEFAULT_INSTANT_MODE_MAX_RESOLUTION
 }
 
 fn default_max_fps() -> u32 {
@@ -302,39 +272,18 @@ fn default_transcription_hints() -> Vec<String> {
     ]
 }
 
-fn default_server_url() -> String {
-    std::option_env!("VITE_SERVER_URL")
-        .unwrap_or("https://cap.so")
-        .to_string()
-}
-
-#[derive(Serialize, Deserialize, Type, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CommercialLicense {
-    license_key: String,
-    expiry_date: Option<f64>,
-    refresh: f64,
-    activated_on: f64,
-}
-
 impl Default for GeneralSettingsStore {
     fn default() -> Self {
         Self {
-            instance_id: uuid::Uuid::new_v4(),
-            upload_individual_files: false,
             hide_dock_icon: false,
-            auto_create_shareable_link: false,
             enable_notifications: true,
-            disable_auto_open_links: false,
             has_completed_startup: false,
             theme: AppTheme::System,
-            commercial_license: None,
             last_version: None,
             window_transparency: false,
             post_studio_recording_behaviour: PostStudioRecordingBehaviour::OpenEditor,
             main_window_recording_start_behaviour: MainWindowRecordingStartBehaviour::Close,
             custom_cursor_capture: cap_recording::DEFAULT_CUSTOM_CURSOR_CAPTURE,
-            server_url: default_server_url(),
             recording_countdown: Some(3),
             enable_native_camera_preview: default_enable_native_camera_preview(),
             // Keep aligned with the field's serde `default_true`: auto zooms
@@ -345,8 +294,6 @@ impl Default for GeneralSettingsStore {
             capture_keyboard_events: cap_recording::DEFAULT_CAPTURE_KEYBOARD_EVENTS,
             post_deletion_behaviour: PostDeletionBehaviour::DoNothing,
             excluded_windows: default_excluded_windows(),
-            delete_instant_recordings_after_upload: false,
-            instant_mode_max_resolution: cap_recording::DEFAULT_INSTANT_MODE_MAX_RESOLUTION,
             default_project_name_template: None,
             crash_recovery_recording: cap_recording::DEFAULT_CRASH_RECOVERY_RECORDING,
             max_fps: cap_recording::DEFAULT_STUDIO_MAX_FPS,
@@ -357,13 +304,10 @@ impl Default for GeneralSettingsStore {
             camera_window_position: None,
             camera_window_positions_by_monitor_name: BTreeMap::new(),
             has_completed_onboarding: false,
-            enable_telemetry: true,
             out_of_process_muxer: cap_recording::DEFAULT_OUT_OF_PROCESS_MUXER,
             recordings_path: None,
             previous_recordings_paths: Vec::new(),
             camera_blur_disabled_by_crash: None,
-            update_channel: UpdateChannel::Stable,
-            enable_gpui_app: false,
         }
     }
 }
@@ -615,8 +559,6 @@ impl GeneralSettingsStore {
         update(&mut settings);
         persist_general_settings(app, &store, &snapshot, &settings)?;
 
-        crate::telemetry::set_telemetry_enabled(settings.enable_telemetry);
-
         #[cfg(target_os = "macos")]
         crate::permissions::sync_macos_dock_visibility(app);
 
@@ -688,7 +630,6 @@ pub fn init(app: &AppHandle) {
         raw_store.set(REMOVE_TARGET_SELECT_MIGRATION_KEY, json!(true));
     }
 
-    crate::telemetry::set_telemetry_enabled(store.enable_telemetry);
     register_bundled_muxer_binary(app);
 
     #[cfg(target_os = "macos")]

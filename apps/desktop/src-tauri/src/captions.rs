@@ -31,7 +31,7 @@ pub use cap_project::{
     CaptionSegment, CaptionSettings, CaptionWord, RecordingMeta, StudioRecordingMeta,
 };
 
-use crate::{general_settings::GeneralSettingsStore, http_client};
+use crate::general_settings::GeneralSettingsStore;
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
 const PARAKEET_UNSUPPORTED_MESSAGE: &str = "Parakeet transcription is not available on Intel macOS";
@@ -2173,7 +2173,7 @@ async fn download_whisper_model_to_path(
             .map_err(|e| format!("Failed to create parent directories: {e}"))?;
     }
 
-    let http_client = app.state::<http_client::HttpClient>();
+    let http_client = reqwest::Client::new();
     let total_size = total_content_length(&http_client, model_parts).await;
 
     let mut file = tokio::fs::File::create(&validated_path)
@@ -2504,7 +2504,7 @@ async fn download_parakeet_model_to_dir(
     std::fs::create_dir_all(validated_dir)
         .map_err(|e| format!("Failed to create model directory: {e}"))?;
 
-    let http_client = app.state::<http_client::HttpClient>();
+    let http_client = reqwest::Client::new();
     let model_files = parakeet_model_files_for_dir(validated_dir);
     let expected_file_sizes = parakeet_model_file_sizes(&http_client, model_files).await?;
 

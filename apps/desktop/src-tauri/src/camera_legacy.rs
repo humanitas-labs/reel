@@ -908,19 +908,6 @@ fn try_drain_readback(
 }
 
 fn init_headless_blur() -> Result<WsBlurResources, String> {
-    // Arm the sentinel's blur marker around the blur-dedicated wgpu
-    // adapter/device setup too, so a native death here is attributed to blur.
-    // Deliberately not `enter_gpu_init_phase`: that would cross-trigger WARP
-    // software-graphics recovery and cripple the editor for a blur-only crash.
-    crate::crash_sentinel::enter_blur_session();
-    struct BlurSessionGuard;
-    impl Drop for BlurSessionGuard {
-        fn drop(&mut self) {
-            crate::crash_sentinel::exit_blur_session();
-        }
-    }
-    let _guard = BlurSessionGuard;
-
     let instance = cap_rendering::create_wgpu_instance_sync();
     let force_software_adapter = cap_rendering::force_software_wgpu_adapter();
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {

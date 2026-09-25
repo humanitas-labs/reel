@@ -74,7 +74,6 @@ pub enum TrayItem {
     ViewAllRecordings,
     ViewAllScreenshots,
     OpenSettings,
-    UploadLogs,
     Quit,
     PreviousItem(String),
     ModeStudio,
@@ -95,7 +94,6 @@ impl From<TrayItem> for MenuId {
             TrayItem::ViewAllRecordings => "view_all_recordings",
             TrayItem::ViewAllScreenshots => "view_all_screenshots",
             TrayItem::OpenSettings => "open_settings",
-            TrayItem::UploadLogs => "upload_logs",
             TrayItem::Quit => "quit",
             TrayItem::PreviousItem(id) => {
                 return format!("{PREVIOUS_ITEM_PREFIX}{id}").into();
@@ -129,7 +127,6 @@ impl TryFrom<MenuId> for TrayItem {
             "view_all_recordings" => Ok(TrayItem::ViewAllRecordings),
             "view_all_screenshots" => Ok(TrayItem::ViewAllScreenshots),
             "open_settings" => Ok(TrayItem::OpenSettings),
-            "upload_logs" => Ok(TrayItem::UploadLogs),
             "quit" => Ok(TrayItem::Quit),
             "mode_studio" => Ok(TrayItem::ModeStudio),
             "mode_instant" => Ok(TrayItem::ModeInstant),
@@ -599,13 +596,6 @@ fn build_tray_menu(app: &AppHandle, cache: &PreviousItemsCache) -> tauri::Result
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(
         app,
-        TrayItem::UploadLogs,
-        "Upload Logs",
-        true,
-        None::<&str>,
-    )?)?;
-    menu.append(&MenuItem::with_id(
-        app,
         "version",
         format!("Cap v{}", env!("CARGO_PKG_VERSION")),
         false,
@@ -984,23 +974,6 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                     tokio::spawn(
                         async move { ShowCapWindow::Settings { page: None }.show(&app).await },
                     );
-                }
-                Ok(TrayItem::UploadLogs) => {
-                    let app = app.clone();
-                    tokio::spawn(async move {
-                        match crate::logging::upload_log_file(&app).await {
-                            Ok(_) => {
-                                tracing::info!("Successfully uploaded logs");
-                                app.dialog()
-                                    .message("Logs uploaded successfully")
-                                    .show(|_| {});
-                            }
-                            Err(e) => {
-                                tracing::error!("Failed to upload logs: {e:#}");
-                                app.dialog().message("Failed to upload logs").show(|_| {});
-                            }
-                        }
-                    });
                 }
                 Ok(TrayItem::Quit) => {
                     let app = app.clone();

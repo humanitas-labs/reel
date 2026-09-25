@@ -305,9 +305,6 @@ fn apply_liquid_glass_background_inner(
 
         let Some(glass_class) = Class::get("NSGlassEffectView") else {
             // No NSGlassEffectView (pre-macOS-26) — the caller uses vibrancy.
-            if enabled {
-                crate::crash_sentinel::set_liquid_glass_outcome("unsupported");
-            }
             return Ok(false);
         };
         let glass_class = glass_class as *const Class;
@@ -342,7 +339,6 @@ fn apply_liquid_glass_background_inner(
         let glass_view: id = msg_send![glass_view, initWithFrame: bounds];
 
         if glass_view == nil {
-            crate::crash_sentinel::set_liquid_glass_outcome("fallback");
             return Ok(false);
         }
 
@@ -384,7 +380,6 @@ fn apply_liquid_glass_background_inner(
             // not a WindowServer/occlusion mutation) so the vibrancy fallback still gets
             // the aligned rounded corner.
             let _: () = msg_send![glass_view, release];
-            crate::crash_sentinel::set_liquid_glass_outcome("fallback");
             return Ok(false);
         }
 
@@ -422,8 +417,6 @@ fn apply_liquid_glass_background_inner(
             // is what actually sticks.
             force_glass_view_always_active(glass_view);
         }
-
-        crate::crash_sentinel::set_liquid_glass_outcome("applied");
         Ok(true)
     }
 }

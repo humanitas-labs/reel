@@ -29,15 +29,12 @@ tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
 tauri-plugin-dialog = "2.2.0"
 tauri-plugin-fs = "2.2.0"
 tauri-plugin-global-shortcut = "2.2.0"
-tauri-plugin-http = "=2.5.2"
 tauri-plugin-notification = "2.2.0"
 tauri-plugin-os = "2.2.0"
 tauri-plugin-process = "2.2.0"
 tauri-plugin-shell = "2.2.0"
 tauri-plugin-single-instance = { version = "2.2.0", features = ["deep-link"] }
 tauri-plugin-store = "2.2.0"
-tauri-plugin-updater = "2.9.0"
-tauri-plugin-oauth = { git = "https://github.com/FabianLars/tauri-plugin-oauth", branch = "v2" }
 tauri-plugin-window-state = "2.2.0"
 tauri-plugin-positioner = "2.2.0"
 tauri-plugin-deep-link = "2.2.0"
@@ -70,7 +67,6 @@ global-hotkey = "0.7.0"
 rand = "0.8.5"
 cpal.workspace = true
 keyed_priority_queue = "0.4.2"
-sentry.workspace = true
 clipboard-rs = "0.2.2"
 whisper-rs = "0.11.0"
 lazy_static = "1.4.0"
@@ -110,17 +106,12 @@ wgpu.workspace = true
 pollster = "0.4"
 bytemuck = "1.23.1"
 kameo = "0.17.2"
-tauri-plugin-sentry = "0.5.0"
 thiserror.workspace = true
 bytes = "1.10.1"
 async-stream = "0.3.6"
 lz4_flex = "0.11"
 sanitize-filename = "0.6.0"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
-tracing-opentelemetry = "0.32.0"
-opentelemetry = "0.31.0"
-opentelemetry-otlp = "0.31.0"                                                 #{ version = , features = ["http-proto", "reqwest-client"] }
-opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio", "trace"] }
 sysinfo = "0.35"
 aho-corasick.workspace = true
 

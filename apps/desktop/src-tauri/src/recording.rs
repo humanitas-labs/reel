@@ -59,30 +59,22 @@ use crate::camera::CameraPreviewShape;
 #[cfg(target_os = "macos")]
 use crate::general_settings;
 use crate::permissions;
-use crate::web_api::AuthedApiError;
 #[cfg(target_os = "macos")]
 use crate::window_exclusion::WindowExclusion;
 use crate::{
     App, CameraWindowOperationLock, CurrentRecordingChanged, EditorRecordingAdded,
     FinalizingRecordings, MutableState, NewStudioRecordingAdded, RecordingStarted, RecordingState,
     RecordingStopped, VideoUploadInfo,
-    api::PresignedS3PutRequestMethod,
     audio::AppSounds,
-    auth::AuthStore,
     create_screenshot, create_screenshot_source_from_segments,
     general_settings::{GeneralSettingsStore, PostDeletionBehaviour, PostStudioRecordingBehaviour},
     open_external_link,
     presets::PresetsStore,
     thumbnails::*,
-    upload::{SegmentUploader, compress_image},
-    web_api::ManagerExt,
     windows::{
         CapWindowId, EditorRecordingTarget, ShowCapWindow, editor_window_for_path, hide_overlay,
     },
 };
-
-#[cfg(not(target_os = "linux"))]
-use crate::upload::InstantMultipartUpload;
 
 fn recording_stopped_share_url(link: &str) -> String {
     if link.contains('?') {

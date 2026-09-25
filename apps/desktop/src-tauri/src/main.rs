@@ -44,41 +44,6 @@ fn main() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 
-    // We have to hold onto the ClientInitGuard until the very end
-    let _sentry_guard = std::option_env!("CAP_DESKTOP_SENTRY_URL").map(|url| {
-        // Crashpad minidump initialization is intentionally disabled. Its process-wide SEH
-        // handler terminates through TerminateProcess, bypassing panic hooks, Tauri exit
-        // events, and Windows Error Reporting. Re-enable it by binding this guard and
-        // passing it to tauri_plugin_sentry::minidump::init once the WER trace is captured.
-        sentry::init((
-            url,
-            sentry::ClientOptions {
-                release: sentry::release_name!(),
-                debug: cfg!(debug_assertions),
-                before_send: Some(Arc::new(|mut event| {
-                    // this is irrelevant to us + users probably don't want us knowing their computer names
-                    event.server_name = None;
-
-                    #[cfg(debug_assertions)]
-                    {
-                        let msg = event.message.clone().unwrap_or("No message".into());
-                        println!("Sentry captured {}: {}", &event.level, &msg);
-                        println!("-- user: {:?}", &event.user);
-                        println!("-- event tags: {:?}", &event.tags);
-                        println!("-- event contexts: {:?}", &event.contexts);
-                        None
-                    }
-
-                    #[cfg(not(debug_assertions))]
-                    {
-                        Some(event)
-                    }
-                })),
-                ..Default::default()
-            },
-        ))
-    });
-
     let (reload_layer, handle) = tracing_subscriber::reload::Layer::new(None::<DynLoggingLayer>);
 
     let logs_dir = {
@@ -143,36 +108,6 @@ fn main() {
 
     let errors_file_appender = create_log_appender(&logs_dir, "cap-desktop-errors.log");
 
-    let (otel_layer, _tracer) = if cfg!(debug_assertions) {
-        use opentelemetry::trace::TracerProvider;
-        use opentelemetry_otlp::WithExportConfig;
-        use tracing_subscriber::Layer;
-
-        let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()
-            .with_batch_exporter(
-                opentelemetry_otlp::SpanExporter::builder()
-                    .with_http()
-                    .with_protocol(opentelemetry_otlp::Protocol::HttpJson)
-                    .build()
-                    .unwrap(),
-            )
-            .with_resource(
-                opentelemetry_sdk::Resource::builder()
-                    .with_service_name("cap-desktop")
-                    .build(),
-            )
-            .build();
-
-        let layer = tracing_opentelemetry::layer()
-            .with_tracer(tracer.tracer("cap-desktop"))
-            .boxed();
-
-        opentelemetry::global::set_tracer_provider(tracer.clone());
-        (Some(layer), Some(tracer))
-    } else {
-        (None, None)
-    };
-
     #[cfg(debug_assertions)]
     let level_filter = tracing_subscriber::filter::LevelFilter::TRACE;
     #[cfg(not(debug_assertions))]
@@ -184,7 +119,6 @@ fn main() {
         ))
         .with(reload_layer)
         .with(level_filter)
-        .with(otel_layer)
         .with(
             tracing_subscriber::fmt::layer()
                 .with_ansi(true)
@@ -206,14 +140,6 @@ fn main() {
         .init();
 
     install_panic_hook(logs_dir.clone());
-
-    #[cfg(debug_assertions)]
-    sentry::configure_scope(|scope| {
-        scope.set_user(Some(sentry::User {
-            username: Some("_DEV_".into()),
-            ..Default::default()
-        }));
-    });
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()

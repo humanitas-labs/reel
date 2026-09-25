@@ -8,9 +8,9 @@ Working rules for every phase: delete rather than stub wherever the compiler let
 
 ## Phase 0. Baseline
 
-- [ ] Branch `local-fork` from `main`. Keep `origin` for reference only; never push there.
-- [ ] Confirm the current app builds and runs from source on this machine before touching anything: `bun install`, `bun run dev:desktop`. Rust 1.88 is pinned by `rust-toolchain.toml`, Bun 1.3.6 is installed. If the dev build fails on stock `main`, fix that first so later breakage is attributable.
-- [ ] Note the current app data dir (`~/Library/Application Support/so.cap.desktop.dev`) and the recordings folder so existing recordings can be copied into the renamed app later.
+- [x] Branch `local-fork` from `main`. Keep `origin` for reference only; never push there.
+- [ ] Confirm the current app builds and runs from source on this machine before touching anything: `bun install`, `bun run dev:desktop`. Rust 1.88 is pinned by `rust-toolchain.toml`. Bun must be 1.4.x: 1.3.6 rewrites `bun.lock` to an older format and re-resolves dependencies, which produces about 400 spurious type errors. Use `bun install --frozen-lockfile`. If the dev build fails on stock `main`, fix that first so later breakage is attributable.
+- [x] Note the current app data dir (`~/Library/Application Support/so.cap.desktop.dev`) and the recordings folder so existing recordings can be copied into the renamed app later.
 
 ## Phase 1. Prune the monorepo
 

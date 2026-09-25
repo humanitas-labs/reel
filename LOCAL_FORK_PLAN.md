@@ -128,4 +128,4 @@ Rework:
 1. Product name: provisionally Reel. Revisit before Phase 4.
 2. Logo source file (1024px PNG or SVG).
 3. Whisper model download: keep as the single exception (decided by default; revisit any time).
-4. Local deep-link actions (`newname://action?...`): keep (default) or drop along with the deep-link plugin.
+4. Local deep-link actions (`reel://action?...`): keep (decided by default).

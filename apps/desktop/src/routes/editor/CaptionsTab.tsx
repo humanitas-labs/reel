@@ -25,7 +25,7 @@ import {
 	defaultCaptionSettings,
 	type EditorCaptionSettings,
 } from "~/store/captions";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import { commands, events } from "~/utils/tauri";
 import IconCapChevronDown from "~icons/cap/chevron-down";
 import IconCapCircleCheck from "~icons/cap/circle-check";
@@ -245,9 +245,7 @@ function CaptionPresetPreview(props: { preset: CaptionStylePreset }) {
 	);
 }
 
-export function CaptionsTab(props: {
-	brandColorSwatches: OrganizationBrandColorSwatch[];
-}) {
+export function CaptionsTab(props: { brandColorSwatches: BrandColorSwatch[] }) {
 	const { project, setProject, editorInstance, editorState, setEditorState } =
 		useEditorContext();
 

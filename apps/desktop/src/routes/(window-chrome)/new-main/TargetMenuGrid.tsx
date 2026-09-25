@@ -47,9 +47,6 @@ type WindowGridProps = BaseProps<CaptureWindowWithThumbnail> & {
 
 type RecordingGridProps = BaseProps<RecordingWithPath> & {
 	variant: "recording";
-	uploadProgress?: Record<string, number>;
-	reuploadingPaths?: Set<string>;
-	onReupload?: (path: string) => void;
 	onRefetch?: () => void;
 	onViewAll?: () => void;
 };
@@ -334,29 +331,6 @@ export default function TargetMenuGrid(props: TargetMenuGridProps) {
 									<>
 										<For each={items() as RecordingWithPath[]}>
 											{(item, index) => {
-												const videoId = () => {
-													const upload = item.upload;
-													if (!upload) return undefined;
-													if (
-														upload.state === "MultipartUpload" ||
-														upload.state === "SinglePartUpload"
-													) {
-														return upload.video_id;
-													}
-													return undefined;
-												};
-												const progress = () => {
-													const id = videoId();
-													if (!id || !recordingProps.uploadProgress)
-														return undefined;
-													return recordingProps.uploadProgress[id];
-												};
-												const isReuploading = () => {
-													return (
-														recordingProps.reuploadingPaths?.has(item.path) ??
-														false
-													);
-												};
 												const showAppearAnimation = !hasInitiallyRendered();
 												return (
 													<Transition
@@ -394,9 +368,6 @@ export default function TargetMenuGrid(props: TargetMenuGridProps) {
 																class="w-full"
 																data-target-menu-card="true"
 																highlightQuery={recordingProps.highlightQuery}
-																uploadProgress={progress()}
-																isReuploading={isReuploading()}
-																onReupload={recordingProps.onReupload}
 																onRefetch={recordingProps.onRefetch}
 															/>
 														</div>

@@ -43,23 +43,19 @@ import {
 	type Trigger,
 	testAutomation,
 } from "~/utils/automations";
-import IconLucideBell from "~icons/lucide/bell";
 import IconLucideChevronDown from "~icons/lucide/chevron-down";
 import IconLucideChevronUp from "~icons/lucide/chevron-up";
 import IconLucideCirclePlay from "~icons/lucide/circle-play";
 import IconLucideClapperboard from "~icons/lucide/clapperboard";
-import IconLucideCloudUpload from "~icons/lucide/cloud-upload";
 import IconLucideCopy from "~icons/lucide/copy";
 import IconLucideFilm from "~icons/lucide/film";
 import IconLucideFolderDown from "~icons/lucide/folder-down";
 import IconLucideFolderOpen from "~icons/lucide/folder-open";
 import IconLucideImage from "~icons/lucide/image";
 import IconLucideImport from "~icons/lucide/import";
-import IconLucideLink from "~icons/lucide/link";
 import IconLucidePlus from "~icons/lucide/plus";
 import IconLucideScanText from "~icons/lucide/scan-text";
 import IconLucideTrash2 from "~icons/lucide/trash-2";
-import IconLucideWebhook from "~icons/lucide/webhook";
 import IconLucideX from "~icons/lucide/x";
 import IconLucideZap from "~icons/lucide/zap";
 import { Section, SectionCard, SettingsPageContent } from "./Setting";
@@ -67,9 +63,7 @@ import { Section, SectionCard, SettingsPageContent } from "./Setting";
 const ALL_TRIGGERS: Trigger[] = [
 	"screenshotTaken",
 	"studioRecordingFinished",
-	"instantRecordingFinished",
 	"recordingStarted",
-	"uploadCompleted",
 	"videoImported",
 	"recordingDeleted",
 ];
@@ -78,7 +72,6 @@ const ALL_ACTION_TYPES: ActionType[] = [
 	"copyToClipboard",
 	"saveToLocation",
 	"export",
-	"upload",
 	"revealInFileManager",
 	"openFile",
 	"recognizeTextToClipboard",
@@ -87,7 +80,6 @@ const ALL_ACTION_TYPES: ActionType[] = [
 	"skipEditor",
 	"applyPreset",
 	"runCommand",
-	"webhook",
 	"deleteLocalFiles",
 ];
 
@@ -97,7 +89,6 @@ const ALL_CONDITION_TYPES: Condition["type"][] = [
 	"durationAtLeast",
 	"durationAtMost",
 	"windowTitleContains",
-	"organizationIs",
 ];
 
 type IconComponent = Component<{ class?: string }>;
@@ -105,9 +96,7 @@ type IconComponent = Component<{ class?: string }>;
 const TRIGGER_ICONS: Record<Trigger, IconComponent> = {
 	screenshotTaken: IconLucideImage,
 	studioRecordingFinished: IconLucideClapperboard,
-	instantRecordingFinished: IconLucideZap,
 	recordingStarted: IconLucideCirclePlay,
-	uploadCompleted: IconLucideCloudUpload,
 	videoImported: IconLucideImport,
 	recordingDeleted: IconLucideTrash2,
 };
@@ -115,9 +104,7 @@ const TRIGGER_ICONS: Record<Trigger, IconComponent> = {
 const TRIGGER_PHRASE: Record<Trigger, string> = {
 	screenshotTaken: "Screenshot taken",
 	studioRecordingFinished: "Studio recording ends",
-	instantRecordingFinished: "Instant recording ends",
 	recordingStarted: "Recording starts",
-	uploadCompleted: "Upload completes",
 	videoImported: "Video imported",
 	recordingDeleted: "Recording deleted",
 };
@@ -126,7 +113,6 @@ const ACTION_SHORT: Record<ActionType, string> = {
 	copyToClipboard: "Copy to clipboard",
 	saveToLocation: "Save to folder",
 	export: "Export",
-	upload: "Upload & copy link",
 	revealInFileManager: "Reveal in file manager",
 	openFile: "Open file",
 	recognizeTextToClipboard: "Copy text (OCR)",
@@ -135,16 +121,13 @@ const ACTION_SHORT: Record<ActionType, string> = {
 	skipEditor: "Skip editor",
 	applyPreset: "Apply preset",
 	runCommand: "Run command",
-	webhook: "Send webhook",
 	deleteLocalFiles: "Delete local files",
 };
 
 const TRIGGER_NOUN: Record<Trigger, string> = {
 	screenshotTaken: "Screenshot",
 	studioRecordingFinished: "Studio recording",
-	instantRecordingFinished: "Instant recording",
 	recordingStarted: "Recording start",
-	uploadCompleted: "Upload",
 	videoImported: "Import",
 	recordingDeleted: "Deletion",
 };
@@ -153,7 +136,6 @@ const ACTION_NOUN: Record<ActionType, string> = {
 	copyToClipboard: "Clipboard",
 	saveToLocation: "Folder",
 	export: "Export",
-	upload: "Upload",
 	revealInFileManager: "Reveal",
 	openFile: "Open",
 	recognizeTextToClipboard: "Text",
@@ -162,7 +144,6 @@ const ACTION_NOUN: Record<ActionType, string> = {
 	skipEditor: "Skip editor",
 	applyPreset: "Preset",
 	runCommand: "Command",
-	webhook: "Webhook",
 	deleteLocalFiles: "Delete",
 };
 
@@ -260,57 +241,6 @@ const TEMPLATES: Template[] = [
 				name: "Auto-export when you finish recording",
 				trigger: "studioRecordingFinished",
 				actions: [defaultActionForType("export")],
-			}),
-	},
-	{
-		id: "upload-share",
-		name: "Upload and grab the share link",
-		description:
-			"Finish a recording and the link is waiting on your clipboard.",
-		icon: IconLucideLink,
-		build: () =>
-			buildRule({
-				name: "Upload and grab the share link",
-				trigger: "studioRecordingFinished",
-				actions: [defaultActionForType("upload")],
-			}),
-	},
-	{
-		id: "notify-upload",
-		name: "Ping me when an upload is ready",
-		description: "Get a gentle desktop nudge once your recording is shareable.",
-		icon: IconLucideBell,
-		build: () =>
-			buildRule({
-				name: "Ping me when an upload is ready",
-				trigger: "uploadCompleted",
-				actions: [
-					{
-						type: "notify",
-						titleTemplate: "Cap",
-						bodyTemplate: "Your recording is ready to share.",
-					},
-				],
-			}),
-	},
-	{
-		id: "webhook-share",
-		name: "Tell Slack when you share something",
-		description: "Send the share link to Slack, Discord, or your own webhook.",
-		icon: IconLucideWebhook,
-		build: () =>
-			buildRule({
-				name: "Tell Slack when you share something",
-				trigger: "instantRecordingFinished",
-				actions: [
-					{
-						type: "webhook",
-						url: "",
-						method: "POST",
-						headers: {},
-						bodyTemplate: '{"text":"{share_link}"}',
-					},
-				],
 			}),
 	},
 ];
@@ -967,10 +897,7 @@ function ConditionValue(props: {
 			return (
 				<SelectInput<AutomationRecordingMode>
 					value={c.mode}
-					options={[
-						{ value: "studio", label: "Studio" },
-						{ value: "instant", label: "Instant" },
-					]}
+					options={[{ value: "studio", label: "Studio" }]}
 					onChange={(v) =>
 						props.onChange((cond) => {
 							if (cond.type === "recordingModeIs") cond.mode = v;
@@ -1002,18 +929,6 @@ function ConditionValue(props: {
 					onInput={(v) =>
 						props.onChange((cond) => {
 							if (cond.type === "windowTitleContains") cond.pattern = v;
-						})
-					}
-				/>
-			);
-		case "organizationIs":
-			return (
-				<TextInput
-					value={c.id}
-					placeholder="Organization ID"
-					onInput={(v) =>
-						props.onChange((cond) => {
-							if (cond.type === "organizationIs") cond.id = v;
 						})
 					}
 				/>
@@ -1150,48 +1065,6 @@ function ActionParams(props: {
 			);
 		case "export":
 			return <ExportParams action={a} onChange={props.onChange} />;
-		case "upload":
-			return (
-				<div class="space-y-2">
-					<Field label="Organization ID (optional)">
-						<TextInput
-							value={a.organizationId ?? ""}
-							onInput={(v) =>
-								props.onChange((act) => {
-									if (act.type === "upload")
-										act.organizationId = v.length > 0 ? v : null;
-								})
-							}
-						/>
-					</Field>
-					<div class="flex gap-6">
-						<label class="flex gap-2 items-center text-[13px] text-gray-12">
-							<Toggle
-								size="sm"
-								checked={a.copyLink}
-								onChange={(v) =>
-									props.onChange((act) => {
-										if (act.type === "upload") act.copyLink = v;
-									})
-								}
-							/>
-							Copy link to clipboard
-						</label>
-						<label class="flex gap-2 items-center text-[13px] text-gray-12">
-							<Toggle
-								size="sm"
-								checked={a.openInBrowser}
-								onChange={(v) =>
-									props.onChange((act) => {
-										if (act.type === "upload") act.openInBrowser = v;
-									})
-								}
-							/>
-							Open in browser
-						</label>
-					</div>
-				</div>
-			);
 		case "runCommand":
 			return (
 				<div class="space-y-2">
@@ -1231,52 +1104,6 @@ function ActionParams(props: {
 						/>
 						Run through shell
 					</label>
-				</div>
-			);
-		case "webhook":
-			return (
-				<div class="space-y-2">
-					<div class="flex gap-2">
-						<Field label="URL">
-							<TextInput
-								value={a.url}
-								placeholder="https://hooks.slack.com/..."
-								onInput={(v) =>
-									props.onChange((act) => {
-										if (act.type === "webhook") act.url = v;
-									})
-								}
-							/>
-						</Field>
-						<Field label="Method">
-							<SelectInput<string>
-								class="w-28"
-								value={a.method}
-								options={[
-									{ value: "POST", label: "POST" },
-									{ value: "PUT", label: "PUT" },
-									{ value: "GET", label: "GET" },
-								]}
-								onChange={(v) =>
-									props.onChange((act) => {
-										if (act.type === "webhook") act.method = v;
-									})
-								}
-							/>
-						</Field>
-					</div>
-					<Field label="Body template (optional)">
-						<TextInput
-							value={a.bodyTemplate ?? ""}
-							placeholder='{"text":"{share_link}"}'
-							onInput={(v) =>
-								props.onChange((act) => {
-									if (act.type === "webhook")
-										act.bodyTemplate = v.length > 0 ? v : null;
-								})
-							}
-						/>
-					</Field>
 				</div>
 			);
 		case "notify":

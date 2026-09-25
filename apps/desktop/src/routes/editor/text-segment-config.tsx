@@ -12,8 +12,8 @@ import {
 import { produce } from "solid-js/store";
 import { Dynamic } from "solid-js/web";
 import { Toggle } from "~/components/Toggle";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import { listSystemFonts } from "~/utils/fonts";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
 import IconLucideAlignCenter from "~icons/lucide/align-center";
 import IconLucideAlignLeft from "~icons/lucide/align-left";
 import IconLucideAlignRight from "~icons/lucide/align-right";
@@ -444,7 +444,7 @@ function AnimationTile(props: {
 export function TextSegmentConfig(props: {
 	segmentIndex: number;
 	segment: TextSegment;
-	brandColorSwatches: OrganizationBrandColorSwatch[];
+	brandColorSwatches: BrandColorSwatch[];
 }) {
 	const { setProject } = useEditorContext();
 	const [installedFonts] = createResource(listSystemFonts, {

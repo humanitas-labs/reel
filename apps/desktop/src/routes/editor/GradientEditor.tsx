@@ -1,5 +1,5 @@
 import { createMemo, createUniqueId, For, Show } from "solid-js";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import { BrandColorsDropdown } from "./BrandColorsDropdown";
 import { hexToRgb, RgbInput } from "./color-utils";
 import { useEditorContext } from "./context";
@@ -48,7 +48,7 @@ function randomColor(): RGBColor {
 }
 
 export function GradientEditor(props: {
-	brandColorSwatches: OrganizationBrandColorSwatch[];
+	brandColorSwatches: BrandColorSwatch[];
 }) {
 	const { project, setProject } = useEditorContext();
 	const filterId = createUniqueId();

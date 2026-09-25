@@ -15,7 +15,6 @@ use cap_enc_ffmpeg::h264::H264EncoderBuilder;
 use cap_enc_ffmpeg::h264::H264Preset;
 #[cfg(windows)]
 use cap_enc_ffmpeg::h264::H264Preset;
-use cap_enc_ffmpeg::segmented_stream::SegmentCompletedEvent;
 use cap_timestamp::Timestamps;
 use std::path::PathBuf;
 
@@ -67,17 +66,6 @@ pub trait MakeCapturePipeline: ScreenCaptureFormat + std::fmt::Debug + 'static {
         output_size: Option<(u32, u32)>,
         quality: StudioQuality,
         #[cfg(windows)] encoder_preferences: EncoderPreferences,
-    ) -> anyhow::Result<OutputPipeline>
-    where
-        Self: Sized;
-
-    async fn make_instant_segmented_video_pipeline(
-        screen_capture: screen_capture::VideoSourceConfig,
-        segments_dir: PathBuf,
-        output_size: (u32, u32),
-        start_time: Timestamps,
-        start_gate: Option<RecordingStartGate>,
-        segment_tx: Option<std::sync::mpsc::Sender<SegmentCompletedEvent>>,
     ) -> anyhow::Result<OutputPipeline>
     where
         Self: Sized;
@@ -204,27 +192,6 @@ impl MakeCapturePipeline for screen_capture::CMSampleBufferCapture {
                 .await
         }
     }
-
-    async fn make_instant_segmented_video_pipeline(
-        screen_capture: screen_capture::VideoSourceConfig,
-        segments_dir: PathBuf,
-        output_size: (u32, u32),
-        start_time: Timestamps,
-        start_gate: Option<RecordingStartGate>,
-        segment_tx: Option<std::sync::mpsc::Sender<SegmentCompletedEvent>>,
-    ) -> anyhow::Result<OutputPipeline> {
-        OutputPipeline::builder(segments_dir)
-            .with_video::<screen_capture::VideoSource>(screen_capture)
-            .with_timestamps(start_time)
-            .with_start_gate(start_gate.clone())
-            .build::<MacOSFragmentedM4SMuxer>(MacOSFragmentedM4SMuxerConfig {
-                bpp: H264EncoderBuilder::INSTANT_MODE_BPP,
-                output_size: Some(output_size),
-                segment_tx,
-                ..Default::default()
-            })
-            .await
-    }
 }
 
 #[cfg(windows)]
@@ -344,30 +311,6 @@ impl MakeCapturePipeline for screen_capture::Direct3DCapture {
                 .await
         }
     }
-
-    async fn make_instant_segmented_video_pipeline(
-        screen_capture: screen_capture::VideoSourceConfig,
-        segments_dir: PathBuf,
-        output_size: (u32, u32),
-        start_time: Timestamps,
-        start_gate: Option<RecordingStartGate>,
-        segment_tx: Option<std::sync::mpsc::Sender<SegmentCompletedEvent>>,
-    ) -> anyhow::Result<OutputPipeline> {
-        OutputPipeline::builder(segments_dir)
-            .with_video::<screen_capture::VideoSource>(screen_capture)
-            .with_timestamps(start_time)
-            .with_start_gate(start_gate.clone())
-            .build::<WindowsFragmentedM4SMuxer>(WindowsFragmentedM4SMuxerConfig {
-                segment_duration: std::time::Duration::from_secs(2),
-                preset: H264Preset::Ultrafast,
-                bpp: H264EncoderBuilder::INSTANT_MODE_BPP,
-                output_size: Some(output_size),
-                shared_pause_state: None,
-                disk_space_callback: None,
-                segment_tx,
-            })
-            .await
-    }
 }
 
 #[cfg(target_os = "linux")]
@@ -403,28 +346,6 @@ impl MakeCapturePipeline for screen_capture::X11Capture {
                 output_size,
                 shared_pause_state,
                 segment_tx: None,
-            })
-            .await
-    }
-
-    async fn make_instant_segmented_video_pipeline(
-        screen_capture: screen_capture::VideoSourceConfig,
-        segments_dir: PathBuf,
-        output_size: (u32, u32),
-        start_time: Timestamps,
-        start_gate: Option<RecordingStartGate>,
-        segment_tx: Option<std::sync::mpsc::Sender<SegmentCompletedEvent>>,
-    ) -> anyhow::Result<OutputPipeline> {
-        OutputPipeline::builder(segments_dir)
-            .with_video::<screen_capture::VideoSource>(screen_capture)
-            .with_timestamps(start_time)
-            .with_start_gate(start_gate.clone())
-            .build::<crate::ffmpeg::SegmentedVideoMuxer>(crate::ffmpeg::SegmentedVideoMuxerConfig {
-                segment_duration: std::time::Duration::from_secs(2),
-                preset: H264Preset::Ultrafast,
-                output_size: Some(output_size),
-                shared_pause_state: None,
-                segment_tx,
             })
             .await
     }

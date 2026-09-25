@@ -430,17 +430,6 @@ async fn prepare_instant_output(project_path: PathBuf) -> Result<PathBuf, String
         if let Some(output) = completed_instant_output(&project_path)? {
             return Ok(output);
         }
-        let ownership = cap_recording::upload_resume::UploadLock::acquire(&project_path).map_err(
-            |error| {
-                format!(
-                    "Instant output needs repair, but upload ownership is unavailable: {error}; local recording retained"
-                )
-            },
-        )?;
-        let project_path = ownership.project_path();
-        if let Some(output) = completed_instant_output(project_path)? {
-            return Ok(output);
-        }
         cap_recording::recovery::RecoveryManager::finalize_instant_output(
             &project_path.join("content/display"),
             &project_path.join("content/audio"),
@@ -843,12 +832,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn completed_instant_export_is_read_only_while_upload_owns_the_project() {
+    async fn completed_instant_export_is_read_only() {
         let project = playable_instant_project();
         std::fs::create_dir(project.path().join("content/audio")).unwrap();
         let output = project.path().join("content/output.mp4");
         let before = std::fs::read(&output).unwrap();
-        let _upload = cap_recording::upload_resume::UploadLock::acquire(project.path()).unwrap();
         assert_eq!(
             prepare_instant_output(project.path().to_path_buf())
                 .await
@@ -862,22 +850,6 @@ mod tests {
         );
         assert_eq!(std::fs::read(&output).unwrap(), before);
         assert_eq!(std::fs::read(&exported).unwrap(), before);
-        assert!(!project.path().join(".recovery.lock").exists());
-    }
-
-    #[tokio::test]
-    async fn instant_export_needing_repair_cannot_rewrite_an_owned_upload() {
-        let project = playable_instant_project();
-        std::fs::create_dir(project.path().join("content/audio")).unwrap();
-        let output = project.path().join("content/output.mp4");
-        std::fs::write(&output, b"broken media must remain available for repair").unwrap();
-        let before = std::fs::read(&output).unwrap();
-        let _upload = cap_recording::upload_resume::UploadLock::acquire(project.path()).unwrap();
-        let error = prepare_instant_output(project.path().to_path_buf())
-            .await
-            .unwrap_err();
-        assert!(error.contains("Another upload owns this recording"));
-        assert_eq!(std::fs::read(&output).unwrap(), before);
         assert!(!project.path().join(".recovery.lock").exists());
     }
 
@@ -903,8 +875,6 @@ mod tests {
                         .unwrap();
                 }
             }
-            let _upload =
-                cap_recording::upload_resume::UploadLock::acquire(project.path()).unwrap();
             assert!(
                 prepare_instant_output(project.path().to_path_buf())
                     .await

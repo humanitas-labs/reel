@@ -731,10 +731,6 @@ mod tests {
         let snapshot = GeneralSettingsSnapshot::load(Some(original.clone())).unwrap();
         assert_eq!(snapshot.invalid_fields, ["maxFps", "theme"]);
         assert_eq!(
-            snapshot.settings.instance_id.to_string(),
-            original["instanceId"]
-        );
-        assert_eq!(
             snapshot.settings.recordings_path.as_deref(),
             original["recordingsPath"].as_str()
         );
@@ -773,7 +769,6 @@ mod tests {
         let mut updated = snapshot.settings.clone();
         updated.hide_dock_icon = true;
         updated.main_window_position.as_mut().unwrap().x = 90.0;
-        updated.commercial_license.as_mut().unwrap().refresh = 456.0;
         append_missing_default_excluded_windows(&mut updated.excluded_windows);
         snapshot
             .persist(

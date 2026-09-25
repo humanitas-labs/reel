@@ -1,5 +1,4 @@
 import { Button } from "@cap/ui-solid";
-import { createWritableMemo } from "@solid-primitives/memo";
 import {
 	isPermissionGranted,
 	requestPermission,
@@ -27,11 +26,9 @@ import themePreviewLight from "~/assets/theme-previews/light.jpg";
 import { Input, Slider } from "~/routes/editor/ui";
 import {
 	audioEnhancementStore,
-	authStore,
 	generalSettingsStore,
 	recordingStartSafetyStore,
 } from "~/store";
-import { clientEnv } from "~/utils/env";
 import {
 	deriveGeneralSettings,
 	type GeneralSettingsStore,
@@ -46,7 +43,6 @@ import {
 	type MainWindowRecordingStartBehaviour,
 	type PostDeletionBehaviour,
 	type PostStudioRecordingBehaviour,
-	type UpdateChannel,
 	type WindowExclusion,
 } from "~/utils/tauri";
 import IconLucideAlertTriangle from "~icons/lucide/alert-triangle";
@@ -574,14 +570,6 @@ function Inner(props: {
 							]}
 						/>
 						<ToggleSettingItem
-							label="Delete Instant recordings after upload"
-							description="Cap removes the local file once it has uploaded successfully."
-							value={settings.deleteInstantRecordingsAfterUpload ?? false}
-							onChange={(v) =>
-								handleChange("deleteInstantRecordingsAfterUpload", v)
-							}
-						/>
-						<ToggleSettingItem
 							label="Crash-recoverable recording"
 							description="Record in fragments that can be recovered after a crash or power loss. Slightly larger files during capture."
 							value={settings.crashRecoveryRecording ?? true}
@@ -698,43 +686,6 @@ function Inner(props: {
 					isLoading={windows.loading}
 					isWindows={ostype === "windows"}
 				/>
-
-				<UpdatesSection
-					value={settings.updateChannel ?? "stable"}
-					onChange={async (channel) => {
-						await handleChange("updateChannel", channel);
-						try {
-							await commands.updatesChannelChanged();
-						} catch (error) {
-							console.error("Failed to notify update channel change", error);
-						}
-					}}
-				/>
-
-				<ServerURLSetting
-					value={settings.serverUrl ?? clientEnv.VITE_SERVER_URL}
-					defaultValue={clientEnv.VITE_SERVER_URL}
-					onChange={async (v) => {
-						const url = new URL(v);
-						const origin = url.origin;
-
-						if (
-							!(await confirm(
-								`Are you sure you want to change the server URL to '${origin}'? You will need to sign in again.`,
-							))
-						)
-							return;
-
-						await authStore.set(undefined);
-						await commands.setServerUrl(origin);
-						handleChange("serverUrl", origin);
-					}}
-				/>
-
-				<TelemetryCard
-					value={settings.enableTelemetry !== false}
-					onChange={(v) => handleChange("enableTelemetry", v)}
-				/>
 			</SettingsPageContent>
 		</div>
 	);
@@ -827,175 +778,6 @@ function StorageSection(props: {
 	);
 }
 
-function TelemetryCard(props: {
-	value: boolean;
-	onChange: (value: boolean) => void;
-}) {
-	return (
-		<Section title="Privacy">
-			<SectionRows>
-				<ToggleSettingItem
-					label="Share anonymous telemetry"
-					description="Cap uses anonymous telemetry to improve reliability and fix bugs. We never collect recording contents, window titles, file paths, or personal information."
-					value={props.value}
-					onChange={props.onChange}
-				/>
-			</SectionRows>
-		</Section>
-	);
-}
-
-type UpdateChannelOption = {
-	value: UpdateChannel;
-	label: string;
-	description: string;
-};
-
-const UPDATE_CHANNEL_OPTIONS: UpdateChannelOption[] = [
-	{
-		value: "stable",
-		label: "Stable",
-		description: "Versioned releases (recommended)",
-	},
-	{
-		value: "nightly",
-		label: "Nightly",
-		description:
-			"The newest builds, updated automatically in the background when you're not recording or exporting. May be unstable.",
-	},
-];
-
-function UpdatesSection(props: {
-	value: UpdateChannel;
-	onChange: (value: UpdateChannel) => void;
-}) {
-	const currentOption = createMemo(
-		() =>
-			UPDATE_CHANNEL_OPTIONS.find((option) => option.value === props.value) ??
-			UPDATE_CHANNEL_OPTIONS[0],
-	);
-
-	return (
-		<Section title="Updates" description="Choose which Cap builds you receive.">
-			<SectionCard>
-				<div class="flex flex-col gap-3 px-4 py-4">
-					<div class="flex justify-between items-start gap-4">
-						<div class="flex flex-col gap-0.5 min-w-0">
-							<p class="text-[13px] text-gray-12">Update channel</p>
-							<p class="text-xs leading-snug text-gray-10">
-								Which release channel Cap updates from.
-							</p>
-						</div>
-						<SegmentedControl
-							value={props.value}
-							onChange={props.onChange}
-							options={UPDATE_CHANNEL_OPTIONS.map((option) => ({
-								value: option.value,
-								label: option.label,
-							}))}
-						/>
-					</div>
-					<div class="flex flex-col gap-1.5 px-3 py-2.5 rounded-lg bg-gray-3">
-						<p class="text-xs text-gray-12">{currentOption().description}</p>
-						<Show when={props.value === "nightly"}>
-							<p class="text-[11px] text-gray-10 leading-snug">
-								Switching back to Stable will return you to the latest stable
-								version, which may be older than your current build.
-							</p>
-						</Show>
-					</div>
-				</div>
-			</SectionCard>
-		</Section>
-	);
-}
-
-function SegmentedControl<T extends string | number>(props: {
-	value: T;
-	onChange: (value: T) => void;
-	options: { value: T; label: string }[];
-}) {
-	return (
-		<div class="inline-flex p-0.5 rounded-lg border border-gray-3 bg-gray-3">
-			<For each={props.options}>
-				{(option) => {
-					const isSelected = () => props.value === option.value;
-					return (
-						<button
-							type="button"
-							onClick={() => props.onChange(option.value)}
-							class={cx(
-								"px-3 py-1 text-xs font-medium rounded-md transition-[background-color,color,box-shadow]",
-								isSelected()
-									? "bg-gray-1 text-gray-12 shadow-sm"
-									: "text-gray-10 hover:text-gray-12",
-							)}
-						>
-							{option.label}
-						</button>
-					);
-				}}
-			</For>
-		</div>
-	);
-}
-
-function ServerURLSetting(props: {
-	value: string;
-	defaultValue: string;
-	onChange: (v: string) => void;
-}) {
-	const [value, setValue] = createWritableMemo(() => props.value);
-	const isDefaultValue = () =>
-		props.value === props.defaultValue && value() === props.defaultValue;
-	const resetToDefault = () => {
-		if (props.value === props.defaultValue) {
-			setValue(props.defaultValue);
-			return;
-		}
-
-		props.onChange(props.defaultValue);
-	};
-
-	return (
-		<Section
-			title="Self-host"
-			description="Only change this if you are running your own instance of Cap Web."
-		>
-			<SectionCard padded>
-				<div class="flex flex-col gap-3">
-					<label class="flex flex-col gap-1.5">
-						<span class="text-[13px] text-gray-12">Cap Server URL</span>
-						<Input
-							class="bg-gray-3"
-							value={value()}
-							onInput={(e) => setValue(e.currentTarget.value)}
-						/>
-					</label>
-					<div class="flex justify-end gap-2">
-						<Button
-							size="sm"
-							variant="gray"
-							disabled={isDefaultValue()}
-							onClick={resetToDefault}
-						>
-							Reset to Default
-						</Button>
-						<Button
-							size="sm"
-							variant="dark"
-							disabled={props.value === value()}
-							onClick={() => props.onChange(value())}
-						>
-							Update
-						</Button>
-					</div>
-				</div>
-			</SectionCard>
-		</Section>
-	);
-}
-
 function DefaultProjectNameCard(props: {
 	value: string | null;
 	onChange: (name: string | null) => Promise<void>;
@@ -1027,7 +809,7 @@ function DefaultProjectNameCard(props: {
 			val,
 			macos ? "Safari" : "Chrome",
 			"Window",
-			"instant",
+			"studio",
 			datetime,
 		);
 		setPreview(formatted);
@@ -1039,7 +821,7 @@ function DefaultProjectNameCard(props: {
 				MOMENT_EXAMPLE_TEMPLATE,
 				macos ? "Safari" : "Chrome",
 				"Window",
-				"instant",
+				"studio",
 				datetime,
 			)
 			.then(setMomentExample);
@@ -1124,7 +906,6 @@ function DefaultProjectNameCard(props: {
 					/>
 
 					<div class="flex gap-2 items-center px-3 py-2 rounded-lg border border-dashed bg-gray-3 border-gray-5">
-						<IconCapLogo class="pointer-events-none size-4 shrink-0" />
 						<p class="text-xs text-gray-12 whitespace-pre-wrap">{preview()}</p>
 					</div>
 
@@ -1143,12 +924,11 @@ function DefaultProjectNameCard(props: {
 							<div class="space-y-1">
 								<p class="font-medium text-gray-12">Recording mode</p>
 								<p>
-									<CodeView>{"{recording_mode}"}</CodeView> → "Studio",
-									"Instant", or "Screenshot"
+									<CodeView>{"{recording_mode}"}</CodeView> → "Studio" or
+									"Screenshot"
 								</p>
 								<p>
-									<CodeView>{"{mode}"}</CodeView> → "studio", "instant", or
-									"screenshot"
+									<CodeView>{"{mode}"}</CodeView> → "studio" or "screenshot"
 								</p>
 							</div>
 

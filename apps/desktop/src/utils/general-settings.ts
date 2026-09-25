@@ -6,9 +6,7 @@ import type {
 export type GeneralSettingsStore = TauriGeneralSettingsStore & {
 	captureKeyboardEvents?: boolean;
 	transcriptionHints?: string[];
-	enableTelemetry?: boolean;
 	outOfProcessMuxer?: boolean;
-	enableGpuiApp?: boolean;
 };
 
 export const DEFAULT_TRANSCRIPTION_HINTS = [
@@ -40,9 +38,7 @@ export function shouldConfirmRecordingWithoutMicrophone(
 
 export function createDefaultGeneralSettings(): GeneralSettingsStore {
 	return {
-		uploadIndividualFiles: false,
 		hideDockIcon: false,
-		autoCreateShareableLink: false,
 		enableNotifications: true,
 		enableNativeCameraPreview: false,
 		autoZoomOnClicks: false,
@@ -51,11 +47,9 @@ export function createDefaultGeneralSettings(): GeneralSettingsStore {
 		captureKeyboardEvents: true,
 		custom_cursor_capture2: true,
 		excludedWindows: [],
-		instantModeMaxResolution: 1920,
 		crashRecoveryRecording: true,
 		maxFps: 60,
 		transcriptionHints: [...DEFAULT_TRANSCRIPTION_HINTS],
-		enableTelemetry: true,
 	};
 }
 

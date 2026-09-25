@@ -145,7 +145,6 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
     let token = app
         .state::<crate::FinalizingRecordings>()
         .start_recovering(project)?;
-    let recover_start = std::time::Instant::now();
     let app_for_recovery = app.clone();
     let result = crate::run_finalization_worker(token, move |project| {
         let path = project.work_path();
@@ -155,11 +154,9 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
         if recording.recoverable_segments.is_empty() {
             return Err("No recoverable segments found".to_string());
         }
-        let estimated_duration_secs = recording.estimated_duration.as_secs();
         let recovered = RecoveryManager::recover(&recording)
             .map_err(|error| recovery_error_message(project.display_path(), error))?;
         project.validate()?;
-        let validation_took_ms = recover_start.elapsed().as_millis() as u64;
 
         let segment_count = match &recovered.meta {
             StudioRecordingMeta::SingleSegment { .. } => 1,

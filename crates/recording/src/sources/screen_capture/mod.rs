@@ -634,7 +634,7 @@ fn is_listable_macos_window(
         && include_accessory_panels
         && is_accessory_application
         && bundle_identifier.is_some_and(|identifier| {
-            !identifier.starts_with("com.apple.") && !identifier.starts_with("so.cap.desktop")
+            !identifier.starts_with("com.apple.") && !identifier.starts_with("com.andjones.reel")
         })
 }
 
@@ -786,7 +786,7 @@ mod tests {
         assert!(!is_listable_macos_window(
             Some(3),
             "Cap",
-            Some("so.cap.desktop.dev"),
+            Some("com.andjones.reel.dev"),
             true,
             true,
         ));

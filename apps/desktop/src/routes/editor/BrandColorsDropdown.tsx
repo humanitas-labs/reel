@@ -1,13 +1,13 @@
 import { DropdownMenu as KDropdownMenu } from "@kobalte/core/dropdown-menu";
 import { cx } from "cva";
 import { For, Show } from "solid-js";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import IconCapChevronDown from "~icons/cap/chevron-down";
 import { getColorPreviewBorderColor } from "./color-utils";
 import { DropdownItem, PopperContent, topLeftAnimateClasses } from "./ui";
 
 export function BrandColorsDropdown(props: {
-	swatches: OrganizationBrandColorSwatch[];
+	swatches: BrandColorSwatch[];
 	onSelect: (color: string) => void;
 	disabled?: boolean;
 	class?: string;

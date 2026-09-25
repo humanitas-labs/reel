@@ -65,15 +65,6 @@ impl WindowExclusion {
 }
 
 #[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
-pub fn filter_for_instant_mode(
-    mut exclusions: Vec<WindowExclusion>,
-    camera_title: &str,
-) -> Vec<WindowExclusion> {
-    exclusions.retain(|e| e.window_title.as_deref() != Some(camera_title));
-    exclusions
-}
-
-#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
 fn matches_window_title(exclusions: &[WindowExclusion], title: &str) -> bool {
     exclusions
         .iter()
@@ -280,54 +271,6 @@ mod tests {
     }
 
     #[test]
-    fn instant_mode_removes_camera_exclusion() {
-        let exclusions = vec![
-            title_exclusion("Cap"),
-            title_exclusion("Cap Camera"),
-            title_exclusion("Cap Settings"),
-            title_exclusion("Cap Recording Controls"),
-        ];
-
-        let filtered = filter_for_instant_mode(exclusions, "Cap Camera");
-
-        assert_eq!(filtered.len(), 3);
-        assert!(
-            filtered
-                .iter()
-                .all(|e| e.window_title.as_deref() != Some("Cap Camera"))
-        );
-        assert!(
-            filtered
-                .iter()
-                .any(|e| e.window_title.as_deref() == Some("Cap"))
-        );
-        assert!(
-            filtered
-                .iter()
-                .any(|e| e.window_title.as_deref() == Some("Cap Settings"))
-        );
-        assert!(
-            filtered
-                .iter()
-                .any(|e| e.window_title.as_deref() == Some("Cap Recording Controls"))
-        );
-    }
-
-    #[test]
-    fn instant_mode_noop_when_camera_absent() {
-        let exclusions = vec![title_exclusion("Cap"), title_exclusion("Cap Settings")];
-
-        let filtered = filter_for_instant_mode(exclusions, "Cap Camera");
-        assert_eq!(filtered.len(), 2);
-    }
-
-    #[test]
-    fn instant_mode_handles_empty_list() {
-        let filtered = filter_for_instant_mode(vec![], "Cap Camera");
-        assert!(filtered.is_empty());
-    }
-
-    #[test]
     fn matches_webview_title_using_exclusion_rules() {
         let exclusions = vec![title_exclusion("Cap Camera")];
 
@@ -348,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn own_window_exclusions_preserve_default_and_instant_camera_rules() {
+    fn own_window_exclusions_preserve_default_rules() {
         use crate::windows::CapWindowId;
 
         let defaults = crate::general_settings::default_excluded_windows();
@@ -357,12 +300,6 @@ mod tests {
             &CapWindowId::RecordingControls
         ));
         assert!(excludes_own_window(&defaults, &CapWindowId::Camera));
-        let instant = filter_for_instant_mode(defaults, &CapWindowId::Camera.title());
-        assert!(!excludes_own_window(&instant, &CapWindowId::Camera));
-        assert!(excludes_own_window(
-            &instant,
-            &CapWindowId::RecordingControls
-        ));
     }
 
     #[cfg(target_os = "macos")]

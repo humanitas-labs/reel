@@ -1408,33 +1408,26 @@ pub(crate) fn deliver_preflight_shortcut(state: &State) {
 }
 
 fn capture_environment_is_x11(
-    mode: cap_recording::RecordingMode,
+    _mode: cap_recording::RecordingMode,
     strict_x11: bool,
-    uses_wayland_portal: bool,
+    _uses_wayland_portal: bool,
 ) -> bool {
-    if mode == cap_recording::RecordingMode::Instant {
-        !uses_wayland_portal
-    } else {
-        strict_x11
-    }
+    strict_x11
 }
 
 fn validate_capture_visibility(
     mode: cap_recording::RecordingMode,
     target: &cap_recording::screen_capture::ScreenCaptureTarget,
-    camera_requested: bool,
-    uses_wayland_portal: bool,
+    _camera_requested: bool,
+    _uses_wayland_portal: bool,
     supported: bool,
 ) -> Result<bool, String> {
     use cap_recording::{RecordingMode, screen_capture::ScreenCaptureTarget};
     let needs_visibility = match target {
         ScreenCaptureTarget::Display { .. } | ScreenCaptureTarget::Area { .. } => {
-            matches!(mode, RecordingMode::Studio | RecordingMode::Instant)
+            matches!(mode, RecordingMode::Studio)
         }
-        ScreenCaptureTarget::Window { .. } => {
-            mode == RecordingMode::Instant && camera_requested && !uses_wayland_portal
-        }
-        ScreenCaptureTarget::CameraOnly => false,
+        ScreenCaptureTarget::Window { .. } | ScreenCaptureTarget::CameraOnly => false,
     };
     if !needs_visibility {
         return Ok(false);
@@ -3213,10 +3206,7 @@ mod tests {
 
     #[test]
     fn wayland_blocks_all_floating_labels_while_capture_can_run() {
-        for mode in [
-            cap_recording::RecordingMode::Studio,
-            cap_recording::RecordingMode::Instant,
-        ] {
+        for mode in [cap_recording::RecordingMode::Studio] {
             for phase in [
                 Phase::Starting,
                 Phase::Recording,
@@ -3799,45 +3789,6 @@ mod tests {
     }
 
     #[test]
-    fn instant_uses_capture_backend_without_loosening_studio_environment() {
-        use cap_recording::RecordingMode;
-        for strict_x11 in [false, true] {
-            assert!(capture_environment_is_x11(
-                RecordingMode::Instant,
-                strict_x11,
-                false
-            ));
-            assert!(!capture_environment_is_x11(
-                RecordingMode::Instant,
-                strict_x11,
-                true
-            ));
-            for uses_wayland_portal in [false, true] {
-                assert_eq!(
-                    capture_environment_is_x11(
-                        RecordingMode::Studio,
-                        strict_x11,
-                        uses_wayland_portal
-                    ),
-                    strict_x11
-                );
-            }
-        }
-        assert!(!x11_environment(true, false, None));
-        assert!(capture_environment_is_x11(
-            RecordingMode::Instant,
-            x11_environment(true, false, None),
-            false
-        ));
-        assert!(!x11_environment(true, true, Some("x11")));
-        assert!(capture_environment_is_x11(
-            RecordingMode::Instant,
-            x11_environment(true, true, Some("x11")),
-            false
-        ));
-    }
-
-    #[test]
     fn monitor_visibility_requires_x11_for_both_recording_modes() {
         use cap_recording::{RecordingMode, screen_capture::ScreenCaptureTarget};
         let display = ScreenCaptureTarget::Display {
@@ -3853,7 +3804,7 @@ mod tests {
         let window = ScreenCaptureTarget::Window {
             id: "1".parse().unwrap(),
         };
-        for mode in [RecordingMode::Studio, RecordingMode::Instant] {
+        for mode in [RecordingMode::Studio] {
             for target in [&display, &area] {
                 assert_eq!(
                     validate_capture_visibility(mode, target, false, false, true),
@@ -3876,36 +3827,6 @@ mod tests {
             validate_capture_visibility(RecordingMode::Screenshot, &display, false, false, false),
             Ok(false)
         );
-    }
-
-    #[test]
-    fn window_camera_visibility_is_required_only_for_x11_instant() {
-        use cap_recording::{RecordingMode, screen_capture::ScreenCaptureTarget};
-        let target = ScreenCaptureTarget::Window {
-            id: "1".parse().unwrap(),
-        };
-        for mode in [
-            RecordingMode::Studio,
-            RecordingMode::Instant,
-            RecordingMode::Screenshot,
-        ] {
-            for camera in [false, true] {
-                for wayland in [false, true] {
-                    let required = mode == RecordingMode::Instant && camera && !wayland;
-                    assert_eq!(
-                        validate_capture_visibility(mode, &target, camera, wayland, true),
-                        Ok(required)
-                    );
-                    let unsupported =
-                        validate_capture_visibility(mode, &target, camera, wayland, false);
-                    if required {
-                        assert!(unsupported.is_err());
-                    } else {
-                        assert_eq!(unsupported, Ok(false));
-                    }
-                }
-            }
-        }
     }
 
     #[test]

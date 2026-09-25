@@ -1,8 +1,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Arc;
-
 use cap_desktop_lib::DynLoggingLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -51,12 +49,12 @@ fn main() {
         let path = dirs::home_dir()
             .unwrap()
             .join("Library/Logs")
-            .join("so.cap.desktop");
+            .join("com.andjones.reel");
 
         #[cfg(not(target_os = "macos"))]
         let path = dirs::data_local_dir()
             .unwrap()
-            .join("so.cap.desktop")
+            .join("com.andjones.reel")
             .join("logs");
 
         #[cfg(debug_assertions)]

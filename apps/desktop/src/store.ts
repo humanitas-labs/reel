@@ -10,7 +10,6 @@ import {
 import { createSerializedStore } from "~/utils/serialized-store";
 import type {
 	AnimatedGradientLibrary,
-	AuthStore,
 	HotkeysStore,
 	PresetsStore,
 	RecordingSettingsStore,
@@ -35,16 +34,6 @@ export const teleprompterDefaults: TeleprompterStore = {
 	showCueMarkers: true,
 	mirror: false,
 	windowOpacityPercent: 92,
-};
-
-export type UserProfileStore = {
-	userId: string | null;
-	profile: {
-		name: string | null;
-		email: string | null;
-		imageUrl: string | null;
-	};
-	updatedAt: number;
 };
 
 let _store: Promise<Store> | undefined;
@@ -121,9 +110,7 @@ export const animatedGradientsStore = {
 		animatedGradientDefaults,
 	),
 };
-export const authStore = declareStore<AuthStore>("auth");
 export const automationsStore = declareStore<AutomationsStore>("automations");
-export const userProfileStore = declareStore<UserProfileStore>("user_profile");
 export const hotkeysStore = declareStore<HotkeysStore>("hotkeys");
 export const generalSettingsStore =
 	declareStore<GeneralSettingsStore>("general_settings");
@@ -138,9 +125,8 @@ export const recordingSettingsStore = declareStore<RecordingSettingsStore>(
 		target: null,
 		micName: null,
 		cameraId: null,
-		mode: "instant",
+		mode: "studio",
 		systemAudio: false,
-		organizationId: null,
 		cameraDeviceSettings: {},
 		microphoneDeviceSettings: {},
 	},

@@ -6,7 +6,6 @@ import {
 	createSignal,
 	Show,
 } from "solid-js";
-import { trackEvent } from "~/utils/analytics";
 import { createTauriEventListener } from "~/utils/createEventListener";
 import { createCurrentRecordingQuery } from "~/utils/queries";
 import { events, type OSPermissionsCheck } from "~/utils/tauri";
@@ -50,11 +49,6 @@ export default function MicrophoneSelect(props: {
 		if (!props.options) return;
 		props.onChange(name);
 		if (!name) setDbs();
-
-		trackEvent("microphone_selected", {
-			microphone_name: name ?? null,
-			enabled: !!name,
-		});
 	};
 
 	createTauriEventListener(events.audioInputLevelChange, (d) => {
@@ -178,11 +172,6 @@ export function MicrophoneSelectBase(props: {
 		if (!props.options) return;
 		props.onChange(item ? item.name : null);
 		if (!item) setDbs();
-
-		trackEvent("microphone_selected", {
-			microphone_name: item?.name ?? null,
-			enabled: !!item,
-		});
 	};
 
 	createTauriEventListener(events.audioInputLevelChange, (dbs) => {

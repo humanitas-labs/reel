@@ -1,14 +1,9 @@
-use crate::{
-    ArcLock, feeds::microphone::MicrophoneFeed, general_settings::GeneralSettingsStore,
-    permissions,
-};
+use crate::{feeds::microphone::MicrophoneFeed, permissions};
 use cap_recording::diagnostics::{
     CameraDiagnostics, CameraFormatInfo, DisplayDiagnostics, HardwareInfo, MicrophoneDiagnostics,
     StorageInfo,
 };
 use serde::Serialize;
-
-use tauri::{AppHandle, Manager};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

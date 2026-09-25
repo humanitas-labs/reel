@@ -11,13 +11,6 @@ interface ModeInfoPanelProps {
 
 const modeOptions = [
 	{
-		mode: "instant" as RecordingMode,
-		title: "Instant",
-		description:
-			"Share instantly with a link. Your recording uploads as you record, so you can share it immediately when you're done.",
-		icon: IconCapInstant,
-	},
-	{
 		mode: "studio" as RecordingMode,
 		title: "Studio",
 		description:

@@ -18,7 +18,7 @@ describe("recording start cancellation", () => {
 		"Recording cancelled before starting.",
 		new Error("Recording cancelled before starting."),
 	])("does not show another error after the user cancels", async (error) => {
-		await handleRecordingResult(Promise.reject(error), undefined);
+		await handleRecordingResult(Promise.reject(error));
 		expect(dialog.message).not.toHaveBeenCalled();
 	});
 
@@ -28,7 +28,7 @@ describe("recording start cancellation", () => {
 		"Recording cancelled",
 	])("still shows a real start failure: %s", async (message) => {
 		expect(isRecordingStartCancelled(message)).toBe(false);
-		await handleRecordingResult(Promise.reject(new Error(message)), undefined);
+		await handleRecordingResult(Promise.reject(new Error(message)));
 		expect(dialog.message).toHaveBeenCalledWith(message, {
 			title: "Error starting recording",
 			kind: "error",

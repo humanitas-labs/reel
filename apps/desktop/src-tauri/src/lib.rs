@@ -24,7 +24,6 @@ pub mod frame_ws;
 mod general_settings;
 mod hotkeys;
 mod import;
-pub mod linux_instant_camera;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos_save_panel;
@@ -58,8 +57,8 @@ use audio::AppSounds;
 use camera::{CameraPreviewManager, CameraPreviewSender, CameraPreviewState};
 use cap_editor::{EditorInstance, EditorState};
 use cap_project::{
-    InstantRecordingMeta, ProjectConfiguration, RecordingMeta, RecordingMetaInner, SharingMeta,
-    StudioRecordingMeta, StudioRecordingStatus, UploadMeta, VideoUploadInfo, XY, ZoomSegment,
+    InstantRecordingMeta, ProjectConfiguration, RecordingMeta, RecordingMetaInner,
+    StudioRecordingMeta, StudioRecordingStatus, XY, ZoomSegment,
 };
 use cap_recording::{
     RecordingMode,
@@ -82,7 +81,6 @@ use editor_window::{EditorInstances, PendingEditorInstances, WindowEditorInstanc
 use ffmpeg::ffi::AV_TIME_BASE;
 use general_settings::GeneralSettingsStore;
 use kameo::{Actor, actor::ActorRef};
-use notifications::NotificationType;
 use recording::{InProgressRecording, RecordingEvent, RecordingInputKind};
 use scap_targets::{Display, DisplayId, WindowId, bounds::LogicalBounds};
 use screenshot_editor::{
@@ -111,7 +109,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::Listener;
-use tauri::{AppHandle, Emitter, Manager, State, Window, WindowEvent, ipc::Channel};
+use tauri::{AppHandle, Emitter, Manager, State, Window, WindowEvent};
 #[cfg(target_os = "linux")]
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -123,15 +121,13 @@ use tauri_plugin_shell::ShellExt;
 use tauri_specta::Event;
 use tokio::sync::{Mutex, RwLock, oneshot, watch};
 use tracing::*;
-#[cfg(target_os = "macos")]
-use windows::hide_overlay;
 use windows::{
     CapWindowId, EditorRecordingTarget, EditorWindowIds, ScreenshotEditorWindowIds, ShowCapWindow,
     set_window_transparent, show_overlay,
 };
 
-use crate::recording_settings::{RecordingSettingsStore, RecordingTargetMode};
 use crate::recording::start_recording;
+use crate::recording_settings::{RecordingSettingsStore, RecordingTargetMode};
 use exit_shutdown::{
     AppExitAction, ExitBlocked, ExitRequestDecision, app_exit_action, collect_device_inventory,
     handle_exit_requested, prepare_then_begin_exit, recording_start_allowed, run_while_active,
@@ -1366,8 +1362,6 @@ pub struct App {
     camera_ws_port: u16,
     #[deprecated = "can be removed when native camera preview is ready"]
     camera_ws_sender: flume::Sender<cap_recording::FFmpegVideoFrame>,
-    #[cfg(target_os = "linux")]
-    pub camera_processing: linux_instant_camera::ProcessingFactory,
     camera_preview: CameraPreviewManager,
     camera_preview_state_tx: tokio::sync::watch::Sender<CameraPreviewState>,
     handle: AppHandle,
@@ -1508,14 +1502,7 @@ impl App {
             self.handle
                 .try_state::<AppExitState>()
                 .is_some_and(|state| state.exit_pending()),
-            false,
         )?;
-        #[cfg(target_os = "linux")]
-        if mode != RecordingMode::Instant
-            && recording::linux_instant::current(&self.handle).is_some()
-        {
-            return Err("Finish the pending Instant cleanup before recording".into());
-        }
         if !matches!(self.recording_state, RecordingState::None) {
             return Err("Recording already in progress".to_string());
         }
@@ -1532,10 +1519,6 @@ impl App {
     }
 
     pub fn clear_pending_recording(&mut self) -> bool {
-        #[cfg(target_os = "linux")]
-        if recording::linux_instant::blocks_cleanup(&self.handle) {
-            return false;
-        }
         if !matches!(self.recording_state, RecordingState::Pending { .. }) {
             return false;
         }
@@ -1553,10 +1536,6 @@ impl App {
     }
 
     pub fn clear_current_recording(&mut self) -> Option<InProgressRecording> {
-        #[cfg(target_os = "linux")]
-        if recording::linux_instant::blocks_cleanup(&self.handle) {
-            return None;
-        }
         let previous = std::mem::replace(&mut self.recording_state, RecordingState::None);
         match previous {
             RecordingState::Active(recording) => {
@@ -1572,10 +1551,6 @@ impl App {
     }
 
     pub fn clear_recording_state(&mut self) -> Option<InProgressRecording> {
-        #[cfg(target_os = "linux")]
-        if recording::linux_instant::blocks_cleanup(&self.handle) {
-            return None;
-        }
         let previous = std::mem::replace(&mut self.recording_state, RecordingState::None);
         self.close_occluder_windows();
         crate::windows::apply_content_protection(&self.handle, false);
@@ -4161,55 +4136,6 @@ pub(crate) async fn create_screenshot(
     result
 }
 
-pub(crate) async fn create_screenshot_source_from_segments(
-    segments_dir: &std::path::Path,
-) -> Result<PathBuf, String> {
-    let init_path = segments_dir.join("init.mp4");
-    if !init_path.exists() {
-        return Err(format!("init.mp4 not found in {}", segments_dir.display()));
-    }
-
-    let first_segment = find_first_segment(segments_dir)
-        .ok_or_else(|| format!("No .m4s segments found in {}", segments_dir.display()))?;
-
-    let temp_path = segments_dir.join(".screenshot_source.mp4");
-    let mut out = tokio::fs::File::create(&temp_path)
-        .await
-        .map_err(|e| format!("Failed to create screenshot source: {e}"))?;
-
-    let mut init_file = tokio::fs::File::open(&init_path)
-        .await
-        .map_err(|e| format!("Failed to open init.mp4: {e}"))?;
-    tokio::io::copy(&mut init_file, &mut out)
-        .await
-        .map_err(|e| format!("Failed to copy init.mp4: {e}"))?;
-
-    let mut seg_file = tokio::fs::File::open(&first_segment)
-        .await
-        .map_err(|e| format!("Failed to open {}: {e}", first_segment.display()))?;
-    tokio::io::copy(&mut seg_file, &mut out)
-        .await
-        .map_err(|e| format!("Failed to copy segment: {e}"))?;
-
-    Ok(temp_path)
-}
-
-fn find_first_segment(dir: &std::path::Path) -> Option<PathBuf> {
-    let mut segments: Vec<PathBuf> = std::fs::read_dir(dir)
-        .ok()?
-        .filter_map(|e| {
-            let path = e.ok()?.path();
-            if path.extension().is_some_and(|ext| ext == "m4s") {
-                Some(path)
-            } else {
-                None
-            }
-        })
-        .collect();
-    segments.sort();
-    segments.into_iter().next()
-}
-
 // async fn create_thumbnail(input: PathBuf, output: PathBuf, size: (u32, u32)) -> Result<(), String> {
 //     println!("Creating thumbnail: input={input:?}, output={output:?}, size={size:?}");
 
@@ -5000,14 +4926,6 @@ pub struct UploadProgress {
     progress: f64,
 }
 
-#[derive(Debug, Deserialize, Type)]
-pub enum UploadMode {
-    Initial {
-        pre_created_video: Option<VideoUploadInfo>,
-    },
-    Reupload,
-}
-
 #[tauri::command]
 #[specta::specta]
 #[instrument(skip(window))]
@@ -5132,7 +5050,7 @@ impl RecordingMetaWithMetadata {
         Self {
             mode: match &inner.inner {
                 RecordingMetaInner::Studio(_) => RecordingMode::Studio,
-                RecordingMetaInner::Instant(_) => RecordingMode::Instant,
+                RecordingMetaInner::Instant(_) => RecordingMode::Studio,
             },
             clip_count: match &inner.inner {
                 RecordingMetaInner::Studio(meta) => match &**meta {
@@ -5278,12 +5196,6 @@ fn list_recordings_inner(
     })
 }
 
-fn acquire_recording_delete_lock(
-    path: &std::path::Path,
-) -> Result<cap_recording::upload_resume::UploadLock, String> {
-    cap_recording::upload_resume::UploadLock::acquire(path).map_err(|error| error.to_string())
-}
-
 fn recording_delete_target(
     recordings_dirs: &[PathBuf],
     path: &Path,
@@ -5342,10 +5254,8 @@ async fn delete_recording_directory(app: AppHandle, path: PathBuf) -> Result<(),
     let recordings_dirs = recordings_locations::known_recordings_dirs(&app);
 
     if let Some(canonical_path) = recording_delete_target(&recordings_dirs, &path)? {
-        let ownership = acquire_recording_delete_lock(&canonical_path)?;
         std::fs::remove_dir_all(&canonical_path)
             .map_err(|error| format!("Failed to delete recording: {error}"))?;
-        drop(ownership);
     }
 
     let _ = RecordingDeleted { path }.emit(&app);
@@ -6059,7 +5969,6 @@ fn typescript_exporter() -> specta_typescript::Typescript {
 fn specta_builder() -> tauri_specta::Builder {
     tauri_specta::Builder::new()
         .commands(tauri_specta::collect_commands![
-            linux_instant_camera::submit_camera_presentation,
             clean_capture::get_clean_capture_state,
             clean_capture::reveal_capture_window,
             animated_gradient_catalog,
@@ -6077,7 +5986,6 @@ fn specta_builder() -> tauri_specta::Builder {
             recording::get_recording_pause_state,
             recording::resume_recording,
             recording::toggle_pause_recording,
-            recording::set_mic_recording_muted,
             recording::restart_recording,
             recording::delete_recording,
             recording::take_screenshot,
@@ -6233,7 +6141,6 @@ fn specta_builder() -> tauri_specta::Builder {
             restart_app,
         ])
         .events(tauri_specta::collect_events![
-            linux_instant_camera::CameraPresentationRequested,
             RecordingOptionsChanged,
             NewStudioRecordingAdded,
             EditorRecordingAdded,
@@ -6330,8 +6237,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
     let camera_tx = camera_preview_ws.sender;
     let camera_ws_port = camera_preview_ws.port;
     let _shutdown = camera_preview_ws.shutdown;
-    #[cfg(target_os = "linux")]
-    let camera_processing = camera_preview_ws.processing;
     let camera_ws_sender = camera_tx.clone();
 
     let (mic_samples_tx, mic_samples_rx) = flume::bounded(8);
@@ -6424,7 +6329,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                     CapWindowId::Camera.label().as_str(),
                     CapWindowId::RecordingsOverlay.label().as_str(),
                     CapWindowId::RecordingControls.label().as_str(),
-                    CapWindowId::Upgrade.label().as_str(),
                     "editor",
                     "screenshot-editor",
                 ])
@@ -6552,7 +6456,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                         RecordingSettingsStore::default()
                     }
                 };
-                app.manage(linux_instant_camera::PresentationBroker::default());
                 app.manage(RequestedInputsState::new(
                     requested_settings.mic_name,
                     requested_settings.camera_id,
@@ -6561,8 +6464,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                 app.manage(Arc::new(RwLock::new(App {
                     camera_ws_port,
                     camera_ws_sender,
-                    #[cfg(target_os = "linux")]
-                    camera_processing,
                     handle: app.clone(),
                     camera_preview,
                     camera_preview_state_tx,
@@ -6894,7 +6795,7 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                                 #[cfg(target_os = "macos")]
                                 return;
                             }
-                            CapWindowId::Upgrade | CapWindowId::ModeSelect => {
+                            CapWindowId::ModeSelect => {
                                 restore_main_and_target_select_windows(app);
                                 restore_camera_window(app);
                                 #[cfg(target_os = "macos")]
@@ -6948,16 +6849,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                 #[cfg(target_os = "macos")]
                 WindowEvent::Focused(focused) => {
                     let window_id = CapWindowId::from_str(label);
-
-                    if matches!(window_id, Ok(CapWindowId::Upgrade)) {
-                        for (label, window) in app.webview_windows() {
-                            if let Ok(id) = CapWindowId::from_str(&label)
-                                && matches!(id, CapWindowId::TargetSelectOverlay { .. })
-                            {
-                                hide_overlay(&window);
-                            }
-                        }
-                    }
 
                     if *focused
                         && let Ok(window_id) = window_id
@@ -7607,26 +7498,6 @@ fn close_target_select_overlays(app: &AppHandle) {
 
 #[cfg(target_os = "windows")]
 fn reopen_main_window(app: &AppHandle) {
-    #[cfg(target_os = "linux")]
-    if let Some(attempt) = recording::linux_instant::current(app)
-        && attempt.has_capture()
-        && !attempt.ui_ready()
-    {
-        let app = app.clone();
-        drop(tauri::async_runtime::spawn(async move {
-            if recording::linux_instant::control(app.clone(), attempt, false)
-                .await
-                .is_ok()
-            {
-                let _ = ShowCapWindow::Main {
-                    init_target_mode: None,
-                }
-                .show(&app)
-                .await;
-            }
-        }));
-        return;
-    }
     if let Some(main) = CapWindowId::Main.get(app) {
         let _ = main.show();
         let _ = main.set_focus();
@@ -9357,41 +9228,6 @@ mod requested_inputs_tests {
 }
 
 #[cfg(test)]
-mod screenshot_share_cache_tests {
-    use super::*;
-
-    fn sharing(content_hash: Option<&str>) -> SharingMeta {
-        SharingMeta {
-            id: String::from("video-id"),
-            link: String::from("https://cap.so/s/video-id"),
-            content_hash: content_hash.map(str::to_string),
-        }
-    }
-
-    #[test]
-    fn reuses_link_when_content_hash_matches() {
-        let link =
-            screenshot_share_link_for_hash(Some(&sharing(Some("hash-a"))), "hash-a").unwrap();
-
-        assert_eq!(link, "https://cap.so/s/video-id");
-    }
-
-    #[test]
-    fn does_not_reuse_link_when_content_hash_changed() {
-        let link = screenshot_share_link_for_hash(Some(&sharing(Some("hash-a"))), "hash-b");
-
-        assert!(link.is_none());
-    }
-
-    #[test]
-    fn does_not_reuse_legacy_link_without_content_hash() {
-        let link = screenshot_share_link_for_hash(Some(&sharing(None)), "hash-a");
-
-        assert!(link.is_none());
-    }
-}
-
-#[cfg(test)]
 mod recording_delete_path_tests {
     use super::recording_delete_target;
 
@@ -9504,187 +9340,6 @@ mod typescript_bindings_tests {
                 .export(super::typescript_exporter(), bindings_path)
                 .expect("failed to export TypeScript bindings");
         }
-    }
-}
-
-#[cfg(test)]
-mod instant_resume_safety_tests {
-    use super::*;
-
-    #[test]
-    fn old_recordings_are_reconciled_once_but_skipped_before_periodic_metadata_reads() {
-        let path = project("old", InstantRecordingMeta::InProgress { recording: true });
-        let later = path.metadata().unwrap().created().unwrap() + Duration::from_secs(25 * 60 * 60);
-        assert!(
-            load_upload_resume_candidate_at(&path, true, later)
-                .unwrap()
-                .is_none()
-        );
-        assert!(matches!(
-            RecordingMeta::load_for_project(&path).unwrap().inner,
-            RecordingMetaInner::Instant(InstantRecordingMeta::Failed { .. })
-        ));
-        std::fs::write(path.join("recording-meta.json"), b"invalid").unwrap();
-        assert!(
-            load_upload_resume_candidate_at(&path, false, later)
-                .unwrap()
-                .is_none()
-        );
-        assert_eq!(
-            std::fs::read(path.join("recording-meta.json")).unwrap(),
-            b"invalid"
-        );
-        std::fs::remove_dir_all(path).unwrap();
-    }
-    fn project(tag: &str, inner: InstantRecordingMeta) -> PathBuf {
-        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let path = std::env::temp_dir().join(format!(
-            "cap-instant-recovery-{tag}-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::AcqRel)
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        let meta = RecordingMeta {
-            platform: None,
-            project_path: path.clone(),
-            pretty_name: "Synthetic recovery".into(),
-            sharing: None,
-            inner: RecordingMetaInner::Instant(inner),
-            upload: Some(UploadMeta::SegmentUpload {
-                video_id: "synthetic".into(),
-                recording_dir: path.clone(),
-                pre_created_video: VideoUploadInfo {
-                    id: "synthetic".into(),
-                    link: "https://example.invalid/s/synthetic".into(),
-                    config: cap_project::S3UploadMeta {
-                        id: "synthetic".into(),
-                    },
-                },
-            }),
-        };
-        meta.save_for_project().unwrap();
-        path
-    }
-    #[test]
-    fn crashed_and_failed_projects_never_become_automatic_upload_candidates() {
-        for inner in [
-            InstantRecordingMeta::InProgress { recording: true },
-            InstantRecordingMeta::Failed {
-                error: "required audio failed".into(),
-            },
-        ] {
-            let path = project("failed", inner);
-            assert!(load_instant_resume_candidate(&path).unwrap().is_none());
-            let meta = RecordingMeta::load_for_project(&path).unwrap();
-            assert!(matches!(
-                meta.inner,
-                RecordingMetaInner::Instant(InstantRecordingMeta::Failed { .. })
-            ));
-            assert!(matches!(
-                meta.upload,
-                Some(UploadMeta::SegmentUpload { .. })
-            ));
-            assert!(path.is_dir());
-            std::fs::remove_dir_all(path).unwrap();
-        }
-    }
-    #[test]
-    fn positively_complete_project_remains_resumable_without_media_deletion() {
-        let path = project(
-            "complete",
-            InstantRecordingMeta::Complete {
-                fps: 30,
-                sample_rate: Some(48000),
-            },
-        );
-        assert!(load_instant_resume_candidate(&path).unwrap().is_some());
-        assert!(path.is_dir());
-        std::fs::remove_dir_all(path).unwrap();
-    }
-    #[test]
-    fn invalid_recovery_metadata_cannot_authorize_upload() {
-        let path = project(
-            "invalid",
-            InstantRecordingMeta::Complete {
-                fps: 30,
-                sample_rate: None,
-            },
-        );
-        std::fs::write(path.join("recording-meta.json"), b"invalid").unwrap();
-        assert!(load_instant_resume_candidate(&path).is_err());
-        assert!(path.is_dir());
-        std::fs::remove_dir_all(path).unwrap();
-    }
-    #[test]
-    fn periodic_reconciliation_does_not_mark_an_active_recording_failed() {
-        let path = project(
-            "periodic",
-            InstantRecordingMeta::InProgress { recording: true },
-        );
-        assert!(
-            load_upload_resume_candidate(&path, false)
-                .unwrap()
-                .is_none()
-        );
-        assert!(matches!(
-            RecordingMeta::load_for_project(&path).unwrap().inner,
-            RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { recording: true })
-        ));
-        std::fs::remove_dir_all(path).unwrap();
-    }
-
-    #[test]
-    fn another_upload_owner_prevents_startup_metadata_mutation() {
-        let path = project(
-            "owned",
-            InstantRecordingMeta::InProgress { recording: true },
-        );
-        let lock = cap_recording::upload_resume::UploadLock::acquire(&path).unwrap();
-        let before = std::fs::read(path.join("recording-meta.json")).unwrap();
-        assert!(load_upload_resume_candidate(&path, true).unwrap().is_none());
-        assert_eq!(
-            std::fs::read(path.join("recording-meta.json")).unwrap(),
-            before
-        );
-        drop(lock);
-        std::fs::remove_dir_all(path).unwrap();
-    }
-    #[test]
-    fn explicit_delete_accepts_idle_gpui_recordings_while_resume_defers_them() {
-        let path = project(
-            "gpui-delete",
-            InstantRecordingMeta::Complete {
-                fps: 30,
-                sample_rate: None,
-            },
-        );
-        std::fs::write(path.join("instant-upload.json"), b"{}").unwrap();
-        assert!(upload::acquire_upload_lock(&path).is_err());
-        let ownership = acquire_recording_delete_lock(&path).unwrap();
-        assert!(acquire_recording_delete_lock(&path).is_err());
-        std::fs::remove_dir_all(&path).unwrap();
-        drop(ownership);
-        assert!(!path.exists());
-    }
-
-    #[test]
-    fn explicit_delete_cannot_bypass_another_clients_active_upload_lock() {
-        let path = project(
-            "active-delete",
-            InstantRecordingMeta::Complete {
-                fps: 30,
-                sample_rate: None,
-            },
-        );
-        let ownership = cap_recording::upload_resume::UploadLock::acquire(&path).unwrap();
-        let original = std::fs::read(path.join("recording-meta.json")).unwrap();
-        assert!(acquire_recording_delete_lock(&path).is_err());
-        assert_eq!(
-            std::fs::read(path.join("recording-meta.json")).unwrap(),
-            original
-        );
-        drop(ownership);
-        std::fs::remove_dir_all(path).unwrap();
     }
 }
 

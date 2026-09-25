@@ -1,13 +1,6 @@
-import { emit } from "@tauri-apps/api/event";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { createOptionsQuery } from "./queries";
-import {
-	commands,
-	type RecordingAction,
-	type RecordingMeta,
-	type RecordingMode,
-} from "./tauri";
+import type { RecordingAction, RecordingMeta } from "./tauri";
 
 export function isRecordingStorageError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : error;
@@ -59,44 +52,13 @@ export function isRecordingStartCancelled(error: unknown): boolean {
 	return message === "Recording cancelled before starting.";
 }
 
-export function handleRecordingResult(
-	result: Promise<RecordingAction>,
-	setOptions: ReturnType<typeof createOptionsQuery>["setOptions"] | undefined,
-) {
+export function handleRecordingResult(result: Promise<RecordingAction>) {
 	return result
 		.then(async (result) => {
 			if (result === "Started") return;
-			if (result === "InvalidAuthentication") {
-				const buttons = setOptions
-					? {
-							yes: "Login",
-							no: "Switch to Studio mode",
-							cancel: "Cancel",
-						}
-					: {
-							ok: "Login",
-							cancel: "Cancel",
-						};
-
-				const result = await dialog.message(
-					"You must be authenticated to start an instant mode recording. Login or switch to Studio mode.",
-					{
-						title: "Authentication required",
-						buttons,
-					},
-				);
-
-				if (result === buttons.yes || result === buttons.ok)
-					emit("start-sign-in");
-				else if (result === buttons.no && setOptions) {
-					setOptions({ mode: "studio" });
-					commands.setRecordingMode("studio");
-				}
-			} else if (result === "UpgradeRequired") commands.showWindow("Upgrade");
-			else
-				await dialog.message(`Error: ${result}`, {
-					title: "Error starting recording",
-				});
+			await dialog.message(`Error: ${result}`, {
+				title: "Error starting recording",
+			});
 		})
 		.catch((error: unknown) => {
 			if (isRecordingStartCancelled(error)) return;
@@ -110,20 +72,8 @@ export function handleRecordingResult(
 		});
 }
 
-export async function openRecordingFolder(
-	projectPath: string,
-	mode: RecordingMode,
-) {
+export async function openRecordingFolder(projectPath: string) {
 	const path = projectPath.replace(/[/\\]+$/, "");
-
-	const openedContent =
-		mode === "instant" &&
-		(await commands.openFilePath(`${path}/content`).then(
-			() => true,
-			() => false,
-		));
-
-	if (openedContent) return;
 
 	await revealItemInDir(`${path}/`);
 }

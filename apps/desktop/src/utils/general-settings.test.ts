@@ -76,19 +76,13 @@ describe("general-settings", () => {
 			expected: true,
 		},
 		{
-			mode: "instant" as const,
-			enabled: true,
-			microphone: null,
-			expected: true,
-		},
-		{
 			mode: "studio" as const,
 			enabled: true,
 			microphone: "MacBook Microphone",
 			expected: false,
 		},
 		{
-			mode: "instant" as const,
+			mode: "studio" as const,
 			enabled: false,
 			microphone: null,
 			expected: false,

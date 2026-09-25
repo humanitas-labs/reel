@@ -169,23 +169,6 @@ impl AutomationHost for CliAutomationHost {
         Ok(())
     }
 
-    async fn upload(
-        &self,
-        _ctx: &TriggerContext,
-        _organization_id: Option<&str>,
-        _copy_link: bool,
-        _open_in_browser: bool,
-    ) -> Result<(), String> {
-        Err("Upload is not available from the CLI".to_string())
-    }
-
-    fn upload_is_verified(
-        &self,
-        _ctx: &TriggerContext,
-    ) -> impl std::future::Future<Output = Result<bool, String>> + Send {
-        std::future::ready(Ok(false))
-    }
-
     async fn reveal_in_file_manager(&self, ctx: &TriggerContext) -> Result<(), String> {
         let path = ctx
             .image_path
@@ -255,17 +238,6 @@ impl AutomationHost for CliAutomationHost {
             ));
         }
         Ok(())
-    }
-
-    async fn webhook(
-        &self,
-        _ctx: &TriggerContext,
-        _url: &str,
-        _method: &str,
-        _headers: &HashMap<String, String>,
-        _body_template: Option<&str>,
-    ) -> Result<(), String> {
-        Err("Webhooks are not available from the CLI".to_string())
     }
 
     async fn recognize_text_to_clipboard(&self, _ctx: &TriggerContext) -> Result<(), String> {
@@ -351,9 +323,6 @@ fn context_env(ctx: &TriggerContext) -> Vec<(&'static str, String)> {
     if let Some(p) = &ctx.output_path {
         env.push(("CAP_OUTPUT_PATH", p.to_string_lossy().to_string()));
     }
-    if let Some(l) = &ctx.share_link {
-        env.push(("CAP_SHARE_LINK", l.clone()));
-    }
     env
 }
 
@@ -428,18 +397,12 @@ pub async fn run_recording_finished(project_path: &Path, mode: AutomationRecordi
 
     let trigger = match mode {
         AutomationRecordingMode::Studio => Trigger::StudioRecordingFinished,
-        AutomationRecordingMode::Instant => Trigger::InstantRecordingFinished,
+        AutomationRecordingMode::Instant => return,
     };
 
-    let mut ctx = TriggerContext::new()
+    let ctx = TriggerContext::new()
         .with_project_path(project_path.to_path_buf())
         .with_recording_mode(mode);
-
-    if let Ok(meta) = cap_project::RecordingMeta::load_for_project(project_path)
-        && let Some(sharing) = meta.sharing
-    {
-        ctx = ctx.with_share_link(sharing.link).with_share_id(sharing.id);
-    }
 
     run_trigger(trigger, ctx).await;
 }

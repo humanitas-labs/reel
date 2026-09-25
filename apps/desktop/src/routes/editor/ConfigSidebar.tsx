@@ -50,10 +50,9 @@ import {
 	generalSettingsStore,
 } from "~/store";
 import {
-	createSelectedOrganization,
-	getOrganizationBrandColorSwatches,
-	type OrganizationBrandColorSwatch,
-} from "~/utils/organization-branding";
+	type BrandColorSwatch,
+	getBrandColorSwatches,
+} from "~/utils/brand-colors";
 import {
 	type AnimatedGradientConfig,
 	type AnimatedGradientLibrary,
@@ -577,12 +576,7 @@ function ConfigSidebarContent() {
 		editorState,
 		meta,
 	} = useEditorContext();
-	const organizationSelection = createSelectedOrganization();
-	const brandColorSwatches = createMemo(() =>
-		getOrganizationBrandColorSwatches(
-			organizationSelection.selectedOrganization(),
-		),
-	);
+	const brandColorSwatches = createMemo(() => getBrandColorSwatches());
 
 	const cursorIdleDelay = () =>
 		((project.cursor as { hideWhenIdleDelay?: number }).hideWhenIdleDelay ??
@@ -1835,7 +1829,7 @@ function ConfigSidebarContent() {
 
 function BackgroundConfig(props: {
 	scrollRef: HTMLDivElement;
-	brandColorSwatches: OrganizationBrandColorSwatch[];
+	brandColorSwatches: BrandColorSwatch[];
 }) {
 	const { project, setProject, editorInstance, projectHistory, selectedStyle } =
 		useEditorContext();

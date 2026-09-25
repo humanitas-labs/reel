@@ -1,13 +1,8 @@
-use cap_project::{
-    InstantRecordingMeta, Platform, ProjectConfiguration, RecordingMeta, RecordingMetaInner,
-};
 use cap_recording::{
     CameraFeed, DoneFut, MicrophoneFeed, PipelineStoppedByUser,
     feeds::{camera, microphone},
-    instant_recording,
     screen_capture::ScreenCaptureTarget,
     studio_recording::{self, ActorHandle as StudioActorHandle},
-    upload_resume::UploadLock,
 };
 use clap::{Args, ValueEnum};
 use futures::FutureExt;
@@ -120,14 +115,12 @@ impl RecordParams {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum RecordMode {
     Studio,
-    Instant,
 }
 
 impl std::fmt::Display for RecordMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Studio => f.write_str("studio"),
-            Self::Instant => f.write_str("instant"),
         }
     }
 }
@@ -245,7 +238,6 @@ async fn foreground_inner(params: RecordParams, format: OutputFormat) -> Result<
 fn automation_mode(mode: RecordMode) -> cap_automation::AutomationRecordingMode {
     match mode {
         RecordMode::Studio => cap_automation::AutomationRecordingMode::Studio,
-        RecordMode::Instant => cap_automation::AutomationRecordingMode::Instant,
     }
 }
 
@@ -696,17 +688,12 @@ fn session_status_row_with_alive(session: Session, alive: bool) -> SessionStatus
 
 enum ActorHandle {
     Studio(StudioActorHandle),
-    Instant {
-        actor: instant_recording::ActorHandle,
-        _upload_lock: UploadLock,
-    },
 }
 
 impl ActorHandle {
     fn done_fut(&self) -> DoneFut {
         match self {
             Self::Studio(actor) => actor.done_fut(),
-            Self::Instant { actor, .. } => actor.done_fut(),
         }
     }
 
@@ -718,25 +705,18 @@ impl ActorHandle {
                 .map(Box::new)
                 .map(CompletedRecording::Studio)
                 .map_err(|e| format!("{e:#}")),
-            Self::Instant { actor, .. } => actor
-                .stop()
-                .await
-                .map(CompletedRecording::Instant)
-                .map_err(|e| format!("{e:#}")),
         }
     }
 }
 
 enum CompletedRecording {
     Studio(Box<studio_recording::CompletedRecording>),
-    Instant(instant_recording::CompletedRecording),
 }
 
 impl CompletedRecording {
     fn project_path(&self) -> &Path {
         match self {
             Self::Studio(recording) => &recording.project_path,
-            Self::Instant(recording) => &recording.project_path,
         }
     }
 }
@@ -746,18 +726,12 @@ async fn start_recording(
     target: ScreenCaptureTarget,
     path: PathBuf,
 ) -> Result<ActorHandle, String> {
-    let upload_lock = prepare_recording_project(
-        &path,
-        params.mode,
-        params.mic.is_some() || params.system_audio,
-    )?;
+    prepare_recording_project(&path)?;
 
     #[cfg(target_os = "macos")]
     let target_for_shareable_content = target.clone();
-    let mut studio_builder = studio_recording::Actor::builder(path.clone(), target.clone())
-        .with_system_audio(params.system_audio);
-    let mut instant_builder =
-        instant_recording::Actor::builder(path, target).with_system_audio(params.system_audio);
+    let mut studio_builder =
+        studio_recording::Actor::builder(path, target).with_system_audio(params.system_audio);
     let mut camera_active = false;
 
     // Feeds must be locked and attached before build(); the lock keeps the device open for the whole
@@ -787,9 +761,7 @@ async fn start_recording(
             .ask(camera::Lock)
             .await
             .map_err(|e| format!("Failed to lock camera feed: {e}"))?;
-        let lock = Arc::new(lock);
-        studio_builder = studio_builder.with_camera_feed(lock.clone());
-        instant_builder = instant_builder.with_camera_feed(lock);
+        studio_builder = studio_builder.with_camera_feed(Arc::new(lock));
         camera_active = true;
     }
 
@@ -819,9 +791,7 @@ async fn start_recording(
             .ask(microphone::Lock)
             .await
             .map_err(|e| format!("Failed to lock mic feed: {e}"))?;
-        let lock = Arc::new(lock);
-        studio_builder = studio_builder.with_mic_feed(lock.clone());
-        instant_builder = instant_builder.with_mic_feed(lock);
+        studio_builder = studio_builder.with_mic_feed(Arc::new(lock));
     }
 
     match params.mode {
@@ -841,35 +811,6 @@ async fn start_recording(
                 )
                 .await
                 .map(ActorHandle::Studio)
-                .map_err(|e| e.to_string())
-        }
-        RecordMode::Instant => {
-            let upload_lock = upload_lock
-                .ok_or_else(|| "Instant recording project ownership is unavailable".to_string())?;
-            let mut builder = instant_builder;
-            #[cfg(target_os = "linux")]
-            if camera_active {
-                builder = builder.with_linux_camera_composition();
-            }
-            builder = builder.with_max_output_size(
-                cap_recording::RecordingDefaults::default().instant_mode_max_resolution,
-            );
-            if let Some(fps) = params.fps {
-                builder = builder.with_max_fps(fps);
-            }
-
-            builder
-                .build(
-                    #[cfg(target_os = "macos")]
-                    Some(
-                        acquire_shareable_content_for_target(&target_for_shareable_content).await?,
-                    ),
-                )
-                .await
-                .map(|actor| ActorHandle::Instant {
-                    actor,
-                    _upload_lock: upload_lock,
-                })
                 .map_err(|e| e.to_string())
         }
     }
@@ -1016,58 +957,12 @@ async fn finalize_completed(
             .map_err(|e| format!("recording finalize task failed: {e}"))?
             .map_err(|e| format!("Failed to finalize recording: {e}"))?;
         }
-        CompletedRecording::Instant(recording) => {
-            finalize_instant_output(recording).await?;
-            persist_instant_recording_meta(recording)?;
-        }
     }
 
     Ok(completed)
 }
 
-async fn finalize_instant_output(
-    recording: &mut instant_recording::CompletedRecording,
-) -> Result<(), String> {
-    let completion = recording.clean_completion.take();
-    let project_path = recording.project_path.clone();
-    let output_path = project_path.join("content/output.mp4");
-    let audio_dir = project_path.join("content/audio");
-    if std::fs::metadata(&output_path)
-        .map(|metadata| metadata.len() > 0)
-        .unwrap_or(false)
-        && !audio_dir.exists()
-    {
-        return Ok(());
-    }
-
-    let display_dir = project_path.join("content/display");
-    tokio::task::spawn_blocking(move || match completion {
-        Some(completion) => {
-            cap_recording::recovery::RecoveryManager::finalize_completed_instant_output(
-                &display_dir,
-                &audio_dir,
-                &output_path,
-                completion,
-            )
-        }
-        None => cap_recording::recovery::RecoveryManager::finalize_instant_output(
-            &display_dir,
-            &audio_dir,
-            &output_path,
-        ),
-    })
-    .await
-    .map_err(|e| format!("instant recording finalize task failed: {e}"))?
-    .map_err(|e| format!("Failed to finalize instant recording: {e}"))?;
-
-    Ok(())
-}
-
-fn prepare_recording_project(
-    path: &Path,
-    mode: RecordMode,
-    required_audio: bool,
-) -> Result<Option<UploadLock>, String> {
+fn prepare_recording_project(path: &Path) -> Result<(), String> {
     if let Some(parent) = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -1082,70 +977,7 @@ fn prepare_recording_project(
             format!("Failed to reserve recording project directory: {error}")
         }
     })?;
-    if mode == RecordMode::Studio {
-        return Ok(None);
-    }
-    let upload_lock = UploadLock::acquire(path)
-        .map_err(|error| format!("Failed to reserve Instant recording ownership: {error}"))?;
-    let content = path.join("content");
-    std::fs::create_dir(&content)
-        .map_err(|error| format!("Failed to create recording content directory: {error}"))?;
-    if required_audio {
-        // Recovery treats this directory as required-audio intent, even before audio setup succeeds.
-        std::fs::create_dir(content.join("audio"))
-            .map_err(|error| format!("Failed to preserve recording audio requirement: {error}"))?;
-    }
-
-    RecordingMeta {
-        platform: Some(Platform::default()),
-        project_path: path.to_path_buf(),
-        pretty_name: path
-            .file_stem()
-            .and_then(|name| name.to_str())
-            .filter(|name| !name.is_empty())
-            .unwrap_or("Cap Recording")
-            .to_string(),
-        sharing: None,
-        inner: RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { recording: true }),
-        upload: None,
-    }
-    .save_for_project()
-    .map_err(|error| format!("Failed to save initial instant recording meta: {error}"))?;
-    Ok(Some(upload_lock))
-}
-
-fn persist_instant_recording_meta(
-    recording: &instant_recording::CompletedRecording,
-) -> Result<(), String> {
-    let pretty_name = recording
-        .project_path
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
-        .unwrap_or("Cap Recording")
-        .to_string();
-    let meta = match &recording.meta {
-        InstantRecordingMeta::Complete { .. } => recording.meta.clone(),
-        InstantRecordingMeta::InProgress { .. } => InstantRecordingMeta::Failed {
-            error: "instant recording stopped before completion".to_string(),
-        },
-        InstantRecordingMeta::Failed { .. } => recording.meta.clone(),
-    };
-
-    RecordingMeta {
-        platform: Some(Platform::default()),
-        project_path: recording.project_path.clone(),
-        pretty_name,
-        sharing: None,
-        inner: RecordingMetaInner::Instant(meta),
-        upload: None,
-    }
-    .save_for_project()
-    .map_err(|e| format!("Failed to save instant recording meta: {e}"))?;
-
-    ProjectConfiguration::default()
-        .write(&recording.project_path)
-        .map_err(|e| format!("Failed to save instant project config: {e}"))
+    Ok(())
 }
 
 fn emit_stopped(format: OutputFormat, completed: &CompletedRecording) -> Result<(), String> {
@@ -1318,72 +1150,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn instant_project_is_discoverable_before_capture_with_required_audio_intent() {
-        let root = tempfile::tempdir().unwrap();
-        for required_audio in [false, true] {
-            let project = root
-                .path()
-                .join("nested")
-                .join(format!("{required_audio}.cap"));
-            let _ownership =
-                prepare_recording_project(&project, RecordMode::Instant, required_audio).unwrap();
-
-            let meta = RecordingMeta::load_for_project(&project).unwrap();
-            assert!(matches!(
-                meta.inner,
-                RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { recording: true })
-            ));
-            assert_eq!(meta.project_path, project);
-            assert_eq!(meta.pretty_name, required_audio.to_string());
-            assert!(meta.platform.is_some());
-            assert!(meta.sharing.is_none());
-            assert!(meta.upload.is_none());
-            assert!(project.join("content").is_dir());
-            assert_eq!(project.join("content/audio").is_dir(), required_audio);
-            assert!(!project.join("content/output.mp4").exists());
-            assert!(!project.join("project-config.json").exists());
-        }
-    }
-
-    #[test]
-    fn recording_project_reservation_preserves_existing_recording_bytes_in_both_modes() {
-        let root = tempfile::tempdir().unwrap();
-        for mode in [RecordMode::Studio, RecordMode::Instant] {
-            let project = root.path().join(format!("{mode}.cap"));
-            let _ownership =
-                prepare_recording_project(&project, RecordMode::Instant, false).unwrap();
-            let mut meta = RecordingMeta::load_for_project(&project).unwrap();
-            meta.inner = RecordingMetaInner::Instant(InstantRecordingMeta::Complete {
-                fps: 30,
-                sample_rate: None,
-            });
-            meta.save_for_project().unwrap();
-            let original_meta = std::fs::read(project.join("recording-meta.json")).unwrap();
-            let output = project.join("content/output.mp4");
-            std::fs::write(&output, b"existing recording media").unwrap();
-
-            let error = prepare_recording_project(&project, mode, true)
-                .err()
-                .unwrap();
-            assert!(error.contains("choose a fresh --path"));
-            assert_eq!(
-                std::fs::read(project.join("recording-meta.json")).unwrap(),
-                original_meta
-            );
-            assert_eq!(std::fs::read(output).unwrap(), b"existing recording media");
-            assert!(!project.join("content/audio").exists());
-        }
-    }
-
-    #[test]
     fn studio_project_is_reserved_before_engine_initialization() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("nested/recording.cap");
-        assert!(
-            prepare_recording_project(&project, RecordMode::Studio, true)
-                .unwrap()
-                .is_none()
-        );
+        prepare_recording_project(&project).unwrap();
         assert!(project.is_dir());
         assert_eq!(std::fs::read_dir(project).unwrap().count(), 0);
     }
@@ -1393,17 +1163,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let directory = root.path().join("empty.cap");
         std::fs::create_dir(&directory).unwrap();
-        for mode in [RecordMode::Studio, RecordMode::Instant] {
-            assert!(prepare_recording_project(&directory, mode, false).is_err());
-            assert!(prepare_recording_project(&directory.join("."), mode, false).is_err());
-        }
+        assert!(prepare_recording_project(&directory).is_err());
+        assert!(prepare_recording_project(&directory.join(".")).is_err());
         assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
 
         let file = root.path().join("file.cap");
         std::fs::write(&file, b"preserve this file").unwrap();
-        for mode in [RecordMode::Studio, RecordMode::Instant] {
-            assert!(prepare_recording_project(&file, mode, false).is_err());
-        }
+        assert!(prepare_recording_project(&file).is_err());
         assert_eq!(std::fs::read(file).unwrap(), b"preserve this file");
     }
 
@@ -1420,9 +1186,7 @@ mod tests {
             let project = root.path().join(format!("link-{dangling}.cap"));
             std::os::unix::fs::symlink(&target, &project).unwrap();
 
-            for mode in [RecordMode::Studio, RecordMode::Instant] {
-                assert!(prepare_recording_project(&project, mode, true).is_err());
-            }
+            assert!(prepare_recording_project(&project).is_err());
             assert_eq!(std::fs::read_link(&project).unwrap(), target);
             if dangling {
                 assert!(!target.exists());
@@ -1434,74 +1198,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn concurrent_instant_project_reservations_have_one_owner() {
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("recording.cap");
-        let barrier = Arc::new(std::sync::Barrier::new(8));
-        let handles: Vec<_> = (0..8)
-            .map(|_| {
-                let project = project.clone();
-                let barrier = barrier.clone();
-                std::thread::spawn(move || {
-                    barrier.wait();
-                    prepare_recording_project(&project, RecordMode::Instant, true)
-                })
-            })
-            .collect();
-        let successful = handles
-            .into_iter()
-            .map(|handle| handle.join().unwrap())
-            .filter(Result::is_ok)
-            .count();
-
-        assert_eq!(successful, 1);
-        assert!(project.join("content/audio").is_dir());
-        let meta = RecordingMeta::load_for_project(&project).unwrap();
-        assert!(matches!(
-            meta.inner,
-            RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { recording: true })
-        ));
-    }
-
-    #[test]
-    fn incomplete_instant_project_never_validates_as_stopped_with_existing_output() {
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("recording.cap");
-        let _ownership = prepare_recording_project(&project, RecordMode::Instant, false).unwrap();
-        std::fs::write(project.join("content/output.mp4"), b"unvalidated media").unwrap();
-        let mut meta = RecordingMeta::load_for_project(&project).unwrap();
-        for state in [
-            InstantRecordingMeta::InProgress { recording: true },
-            InstantRecordingMeta::InProgress { recording: false },
-            InstantRecordingMeta::Failed {
-                error: "capture failed".to_string(),
-            },
-        ] {
-            meta.inner = RecordingMetaInner::Instant(state);
-            meta.save_for_project().unwrap();
-            assert!(crate::project::validate_project(&project).is_err());
-        }
-    }
-
-    #[test]
-    fn live_instant_project_excludes_repair_until_ownership_is_released() {
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("recording.cap");
-        let ownership = prepare_recording_project(&project, RecordMode::Instant, false)
-            .unwrap()
-            .unwrap();
-        assert!(RecordingMeta::load_for_project(&project).is_ok());
-        assert!(matches!(
-            UploadLock::acquire(&project),
-            Err(cap_recording::upload_resume::UploadLockError::Busy)
-        ));
-
-        drop(ownership);
-        let recovered = UploadLock::acquire(&project).unwrap();
-        assert_eq!(recovered.project_path(), project.canonicalize().unwrap());
     }
 
     #[tokio::test]

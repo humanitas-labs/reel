@@ -13,9 +13,6 @@ pub struct TriggerContext {
     pub capture_target: Option<CaptureTargetKind>,
     pub recording_mode: Option<AutomationRecordingMode>,
     pub duration_secs: Option<f64>,
-    pub share_link: Option<String>,
-    pub share_id: Option<String>,
-    pub organization_id: Option<String>,
     pub window_title: Option<String>,
 }
 
@@ -28,9 +25,6 @@ impl TriggerContext {
             capture_target: None,
             recording_mode: None,
             duration_secs: None,
-            share_link: None,
-            share_id: None,
-            organization_id: None,
             window_title: None,
         }
     }
@@ -65,21 +59,6 @@ impl TriggerContext {
         self
     }
 
-    pub fn with_share_link(mut self, link: String) -> Self {
-        self.share_link = Some(link);
-        self
-    }
-
-    pub fn with_share_id(mut self, id: String) -> Self {
-        self.share_id = Some(id);
-        self
-    }
-
-    pub fn with_organization_id(mut self, id: String) -> Self {
-        self.organization_id = Some(id);
-        self
-    }
-
     pub fn with_window_title(mut self, title: String) -> Self {
         self.window_title = Some(title);
         self
@@ -97,11 +76,9 @@ pub enum Capability {
     CopyToClipboard,
     SaveToLocation,
     Export,
-    Upload,
     RevealInFileManager,
     OpenFile,
     RunCommand,
-    Webhook,
     RecognizeText,
     Notify,
     OpenEditor,
@@ -118,11 +95,9 @@ impl Action {
             Action::CopyToClipboard { .. } => Capability::CopyToClipboard,
             Action::SaveToLocation { .. } => Capability::SaveToLocation,
             Action::Export { .. } => Capability::Export,
-            Action::Upload { .. } => Capability::Upload,
             Action::RevealInFileManager => Capability::RevealInFileManager,
             Action::OpenFile => Capability::OpenFile,
             Action::RunCommand { .. } => Capability::RunCommand,
-            Action::Webhook { .. } => Capability::Webhook,
             Action::RecognizeTextToClipboard => Capability::RecognizeText,
             Action::Notify { .. } => Capability::Notify,
             Action::OpenEditor => Capability::OpenEditor,
@@ -170,10 +145,6 @@ fn evaluate_condition(condition: &Condition, ctx: &TriggerContext) -> bool {
             .window_title
             .as_ref()
             .is_some_and(|t| t.to_lowercase().contains(&pattern.to_lowercase())),
-        // Reserved for future per-organization filtering: no trigger currently populates
-        // `organization_id`, and the desktop UI hides this condition (CONDITION_REQUIRES maps it to
-        // null), so this arm stays inert until org context is plumbed through the trigger pipeline.
-        Condition::OrganizationIs { id } => ctx.organization_id.as_ref() == Some(id),
     }
 }
 
@@ -200,21 +171,6 @@ pub trait AutomationHost: Send + Sync {
         destination: &ExportDestination,
     ) -> impl std::future::Future<Output = Result<(), String>> + Send;
 
-    fn upload(
-        &self,
-        ctx: &TriggerContext,
-        organization_id: Option<&str>,
-        copy_link: bool,
-        open_in_browser: bool,
-    ) -> impl std::future::Future<Output = Result<(), String>> + Send;
-
-    fn upload_is_verified(
-        &self,
-        _ctx: &TriggerContext,
-    ) -> impl std::future::Future<Output = Result<bool, String>> + Send {
-        std::future::ready(Ok(false))
-    }
-
     fn reveal_in_file_manager(
         &self,
         ctx: &TriggerContext,
@@ -233,15 +189,6 @@ pub trait AutomationHost: Send + Sync {
         cwd: Option<&str>,
         env: &std::collections::HashMap<String, String>,
         use_shell: bool,
-    ) -> impl std::future::Future<Output = Result<(), String>> + Send;
-
-    fn webhook(
-        &self,
-        ctx: &TriggerContext,
-        url: &str,
-        method: &str,
-        headers: &std::collections::HashMap<String, String>,
-        body_template: Option<&str>,
     ) -> impl std::future::Future<Output = Result<(), String>> + Send;
 
     fn recognize_text_to_clipboard(
@@ -311,23 +258,11 @@ pub async fn run<H: AutomationHost>(
     for (rule_id, actions) in matched {
         info!(rule_id = %rule_id, trigger = ?trigger, "Running automation rule");
         let mut action_results = Vec::new();
-        let mut remaining_uploads = actions
-            .iter()
-            .filter(|action| matches!(action, Action::Upload { .. }))
-            .count();
-        let requires_upload_verification =
-            remaining_uploads > 0 || *trigger == Trigger::UploadCompleted;
-        let mut upload_failed = false;
 
         for action in &actions {
-            let is_upload = matches!(action, Action::Upload { .. });
-            if is_upload {
-                remaining_uploads -= 1;
-            }
             if let Some(cap) = action.required_capability()
                 && !caps.contains(&cap)
             {
-                upload_failed |= is_upload;
                 warn!(
                     rule_id = %rule_id,
                     action = ?action,
@@ -342,30 +277,7 @@ pub async fn run<H: AutomationHost>(
                 continue;
             }
 
-            let result = if matches!(action, Action::DeleteLocalFiles)
-                && requires_upload_verification
-            {
-                if remaining_uploads > 0 {
-                    Err("Upload has not finished; local recording retained".to_string())
-                } else if upload_failed {
-                    Err("Upload failed; local recording retained".to_string())
-                } else {
-                    match host.upload_is_verified(ctx).await {
-                        Ok(true) => execute_action(host, action, ctx).await,
-                        Ok(false) => Err(
-                            "Upload submitted, but remote verification is unavailable; local recording retained"
-                                .to_string(),
-                        ),
-                        Err(error) => Err(format!(
-                            "Upload verification failed; local recording retained: {error}"
-                        )),
-                    }
-                }
-            } else {
-                execute_action(host, action, ctx).await
-            };
-            upload_failed |= is_upload && result.is_err();
-            let (success, error) = match result {
+            let (success, error) = match execute_action(host, action, ctx).await {
                 Ok(()) => (true, None),
                 Err(e) => {
                     warn!(
@@ -411,19 +323,6 @@ async fn execute_action<H: AutomationHost>(
             profile,
             destination,
         } => host.export(ctx, profile, destination).await,
-        Action::Upload {
-            organization_id,
-            copy_link,
-            open_in_browser,
-        } => {
-            host.upload(
-                ctx,
-                organization_id.as_deref(),
-                *copy_link,
-                *open_in_browser,
-            )
-            .await
-        }
         Action::RevealInFileManager => host.reveal_in_file_manager(ctx).await,
         Action::OpenFile => host.open_file(ctx).await,
         Action::RunCommand {
@@ -434,15 +333,6 @@ async fn execute_action<H: AutomationHost>(
             use_shell,
         } => {
             host.run_command(ctx, program, args, cwd.as_deref(), env, *use_shell)
-                .await
-        }
-        Action::Webhook {
-            url,
-            method,
-            headers,
-            body_template,
-        } => {
-            host.webhook(ctx, url, method, headers, body_template.as_deref())
                 .await
         }
         Action::RecognizeTextToClipboard => host.recognize_text_to_clipboard(ctx).await,

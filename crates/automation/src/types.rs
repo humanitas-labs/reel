@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 
@@ -9,8 +9,27 @@ use cap_project::XY;
 pub struct AutomationsStore {
     #[serde(default)]
     pub version: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_supported_rules")]
     pub rules: Vec<AutomationRule>,
+}
+
+fn deserialize_supported_rules<'de, D>(deserializer: D) -> Result<Vec<AutomationRule>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|value| match serde_json::from_value::<AutomationRule>(value.clone()) {
+            Ok(rule) => Some(rule),
+            Err(error) => {
+                let id = value.get("id").and_then(serde_json::Value::as_str);
+                let name = value.get("name").and_then(serde_json::Value::as_str);
+                tracing::warn!(?id, ?name, %error, "Dropping automation rule that this build cannot run");
+                None
+            }
+        })
+        .collect())
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]
@@ -46,9 +65,7 @@ pub enum MatchMode {
 pub enum Trigger {
     ScreenshotTaken,
     StudioRecordingFinished,
-    InstantRecordingFinished,
     RecordingStarted,
-    UploadCompleted,
     VideoImported,
     RecordingDeleted,
 }
@@ -61,7 +78,6 @@ pub enum Condition {
     DurationAtLeast { secs: f64 },
     DurationAtMost { secs: f64 },
     WindowTitleContains { pattern: String },
-    OrganizationIs { id: String },
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,15 +113,6 @@ pub enum Action {
         #[serde(default)]
         destination: ExportDestination,
     },
-    #[serde(rename_all = "camelCase")]
-    Upload {
-        #[serde(default)]
-        organization_id: Option<String>,
-        #[serde(default = "default_true")]
-        copy_link: bool,
-        #[serde(default)]
-        open_in_browser: bool,
-    },
     RevealInFileManager,
     OpenFile,
     #[serde(rename_all = "camelCase")]
@@ -119,16 +126,6 @@ pub enum Action {
         env: HashMap<String, String>,
         #[serde(default)]
         use_shell: bool,
-    },
-    #[serde(rename_all = "camelCase")]
-    Webhook {
-        url: String,
-        #[serde(default = "default_post")]
-        method: String,
-        #[serde(default)]
-        headers: HashMap<String, String>,
-        #[serde(default)]
-        body_template: Option<String>,
     },
     RecognizeTextToClipboard,
     #[serde(rename_all = "camelCase")]
@@ -144,10 +141,6 @@ pub enum Action {
         name: String,
     },
     DeleteLocalFiles,
-}
-
-fn default_post() -> String {
-    "POST".to_string()
 }
 
 fn default_notify_title() -> String {

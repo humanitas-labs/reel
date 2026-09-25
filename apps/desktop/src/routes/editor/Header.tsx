@@ -15,13 +15,10 @@ import toast from "solid-toast";
 import Tooltip from "~/components/Tooltip";
 import CaptionControlsMacOS from "~/components/titlebar/controls/CaptionControlsMacOS";
 import CaptionControlsWindows11 from "~/components/titlebar/controls/CaptionControlsWindows11";
-import { trackEvent } from "~/utils/analytics";
 import { commands } from "~/utils/tauri";
 import { useEditorContext } from "./context";
-import OrganizationDropdown from "./OrganizationDropdown";
 import PresetsDropdown from "./PresetsDropdown";
 import { createRecordingTitleSave } from "./recording-title-save";
-import ShareButton from "./ShareButton";
 import { EditorButton } from "./ui";
 
 export type ResolutionOption = {
@@ -183,7 +180,6 @@ export function Header(props: {
 					leftIcon={<IconCapRedo />}
 				/>
 				<div class="mx-1.5 w-px h-4 shrink-0 bg-ed-line-strong" />
-				<OrganizationDropdown />
 				<PresetsDropdown />
 				<EditorButton
 					title="Clips"
@@ -225,7 +221,6 @@ export function Header(props: {
 						</span>
 					</EditorButton>
 				</Show>
-				<ShareButton />
 				<button
 					type="button"
 					class={cx(
@@ -238,7 +233,6 @@ export function Header(props: {
 					onClick={() => {
 						clearTimelineSelection();
 
-						trackEvent("export_button_clicked");
 						if (exportState.type === "done") setExportState({ type: "idle" });
 
 						setDialog({ type: "export", open: true });

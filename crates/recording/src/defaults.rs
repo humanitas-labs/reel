@@ -1,11 +1,7 @@
 use crate::{StudioQuality, studio_recording};
 
-pub const FREE_INSTANT_MODE_MAX_RESOLUTION: u32 = 1280;
-pub const PRO_INSTANT_MODE_MAX_RESOLUTION: u32 = 1920;
-pub const DEFAULT_INSTANT_MODE_MAX_RESOLUTION: u32 = PRO_INSTANT_MODE_MAX_RESOLUTION;
 pub const DEFAULT_STUDIO_MAX_FPS: u32 = 60;
 pub const CAMERA_ACTIVE_STUDIO_MAX_FPS: u32 = 30;
-pub const DEFAULT_INSTANT_MODE_FPS: u32 = 30;
 pub const DEFAULT_CUSTOM_CURSOR_CAPTURE: bool = true;
 pub const DEFAULT_CAPTURE_KEYBOARD_EVENTS: bool = true;
 pub const DEFAULT_CRASH_RECOVERY_RECORDING: bool = true;
@@ -13,7 +9,7 @@ pub const DEFAULT_OUT_OF_PROCESS_MUXER: bool = false;
 
 const COMPATIBILITY_MEMORY_THRESHOLD_BYTES: u64 = 16 * 1024 * 1024 * 1024;
 
-/// The studio/instant recording defaults shared by the desktop app and the `cap` CLI, so both
+/// The studio recording defaults shared by the desktop app and the `cap` CLI, so both
 /// surfaces build recordings identically (fragmentation, fps cap, cursor capture, quality) instead
 /// of each maintaining its own copy. The desktop overlays the user's persisted settings on top.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,7 +20,6 @@ pub struct RecordingDefaults {
     pub max_fps: u32,
     pub studio_recording_quality: StudioQuality,
     pub out_of_process_muxer: bool,
-    pub instant_mode_max_resolution: u32,
 }
 
 impl Default for RecordingDefaults {
@@ -36,7 +31,6 @@ impl Default for RecordingDefaults {
             max_fps: DEFAULT_STUDIO_MAX_FPS,
             studio_recording_quality: default_studio_recording_quality(),
             out_of_process_muxer: DEFAULT_OUT_OF_PROCESS_MUXER,
-            instant_mode_max_resolution: DEFAULT_INSTANT_MODE_MAX_RESOLUTION,
         }
     }
 }

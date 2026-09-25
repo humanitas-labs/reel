@@ -1,17 +1,12 @@
 import { Button } from "@cap/ui-solid";
-import { useNavigate } from "@solidjs/router";
 import {
 	createMutation,
 	queryOptions,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/solid-query";
-import { Channel } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
-import {
-	getAllWebviewWindows,
-	WebviewWindow,
-} from "@tauri-apps/api/webviewWindow";
+import { emit } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
 	currentMonitor,
 	getCurrentWindow,
@@ -19,40 +14,31 @@ import {
 	PhysicalPosition,
 } from "@tauri-apps/api/window";
 import * as dialog from "@tauri-apps/plugin-dialog";
-import * as shell from "@tauri-apps/plugin-shell";
 import { cx } from "cva";
 import {
 	createEffect,
 	createMemo,
 	createSignal,
-	ErrorBoundary,
 	For,
 	on,
 	onCleanup,
 	onMount,
 	Show,
-	Suspense,
 } from "solid-js";
-import { createStore, produce, reconcile } from "solid-js/store";
+import { createStore, reconcile } from "solid-js/store";
 import toast from "solid-toast";
 import { Transition } from "solid-transition-group";
 import Mode from "~/components/Mode";
 import { RecoveryToast } from "~/components/RecoveryToast";
 import Tooltip from "~/components/Tooltip";
 import { Input } from "~/routes/editor/ui";
-import {
-	authStore,
-	generalSettingsStore,
-	recordingSettingsStore,
-} from "~/store";
-import { createSignInMutation } from "~/utils/auth";
+import { generalSettingsStore, recordingSettingsStore } from "~/store";
 import { createTauriEventListener } from "~/utils/createEventListener";
 import {
 	type CameraWithDetails,
 	createStableDevicesQuery,
 	type MicrophoneWithDetails,
 } from "~/utils/devices";
-import { clientEnv } from "~/utils/env";
 import { hideCurrentWindow } from "~/utils/hide-window";
 import {
 	importImageFromPicker,
@@ -63,7 +49,6 @@ import {
 	createCameraMutation,
 	createCleanCaptureQuery,
 	createCurrentRecordingQuery,
-	createLicenseQuery,
 	createMicrophoneMutation,
 	getEditorRecordingTarget,
 	getPermissions,
@@ -91,11 +76,8 @@ import {
 	type OSPermissionsCheck,
 	type RecordingTargetMode,
 	type ScreenCaptureTarget,
-	type UpdateCheckResult,
-	type UploadProgress,
 } from "~/utils/tauri";
 import { openTeleprompter } from "~/utils/teleprompter";
-import { restartAfterUpdate } from "~/utils/updater";
 import IconCapLogoFull from "~icons/cap/logo-full";
 import IconCapLogoFullDark from "~icons/cap/logo-full-dark";
 import IconLucideAppWindowMac from "~icons/lucide/app-window-mac";
@@ -117,7 +99,6 @@ import {
 	useRecordingOptions,
 } from "../OptionsContext";
 import CameraSelect from "./CameraSelect";
-import ChangelogButton from "./ChangeLogButton";
 import MicrophoneSelect from "./MicrophoneSelect";
 import ModeInfoPanel from "./ModeInfoPanel";
 import SystemAudio from "./SystemAudio";
@@ -350,9 +331,6 @@ type TargetMenuPanelProps =
 			targets?: RecordingWithPath[];
 			onSelect: (target: RecordingWithPath) => void;
 			onViewAll: () => void;
-			uploadProgress?: Record<string, number>;
-			reuploadingPaths?: Set<string>;
-			onReupload?: (path: string) => void;
 			onRefetch?: () => void;
 	  }
 	| {
@@ -1622,9 +1600,6 @@ function TargetMenuPanel(props: TargetMenuPanelProps & SharedTargetMenuProps) {
 							disabled={props.disabled}
 							highlightQuery={trimmedSearch()}
 							emptyMessage={trimmedSearch() ? noResultsMessage : undefined}
-							uploadProgress={props.uploadProgress}
-							reuploadingPaths={props.reuploadingPaths}
-							onReupload={props.onReupload}
 							onRefetch={props.onRefetch}
 							onViewAll={props.onViewAll}
 						/>
@@ -1657,104 +1632,6 @@ export default function () {
 			<Page />
 		</RecordingOptionsProvider>
 	);
-}
-
-let hasChecked = false;
-const [installingUpdate, setInstallingUpdate] = createSignal(false);
-function createUpdateCheck() {
-	if (import.meta.env.DEV) return;
-
-	const navigate = useNavigate();
-
-	onMount(async () => {
-		if (hasChecked) return;
-		hasChecked = true;
-
-		await new Promise((res) => setTimeout(res, 10_000));
-
-		// The Rust background loop owns nightly updates.
-		const settings = await generalSettingsStore.get();
-		if (settings?.updateChannel === "nightly") return;
-
-		let update: UpdateCheckResult | null = null;
-		try {
-			update = await commands.updatesCheck();
-		} catch (e) {
-			console.error("Failed to check for updates:", e);
-			return;
-		}
-
-		if (!update) return;
-
-		let shouldUpdate: boolean | undefined;
-		try {
-			shouldUpdate = await dialog.confirm(
-				`Version ${update.version} of Cap is available, would you like to install it?`,
-				{ title: "Update Cap", okLabel: "Update", cancelLabel: "Ignore" },
-			);
-		} catch (e) {
-			console.error("Failed to show update dialog:", e);
-			return;
-		}
-
-		if (!shouldUpdate) return;
-		navigate("/update");
-	});
-}
-
-function createUpdateReadyToast() {
-	createTauriEventListener(events.updateReady, (update) => {
-		toast.custom(
-			(t) => (
-				// The main window is only 330px wide, so the toast must fit inside it
-				// (never exceed the viewport) and stack its actions below the message
-				// rather than racing them on one line — otherwise the card overflows
-				// the window edge and gets clipped.
-				<div class="flex flex-col gap-2.5 px-4 py-3 rounded-xl border shadow-lg bg-gray-1 border-gray-4 text-gray-12 w-[min(24rem,calc(100vw-2rem))]">
-					<p class="text-sm">
-						{update.installed
-							? `Cap ${update.version} has been installed — restart to apply`
-							: `Cap ${update.version} is ready to install`}
-					</p>
-					<div class="flex gap-2 items-center">
-						<button
-							type="button"
-							disabled={installingUpdate()}
-							class="px-2.5 py-1 text-xs font-medium rounded-lg transition-colors bg-blue-9 text-white hover:bg-blue-10 disabled:cursor-not-allowed disabled:opacity-60"
-							onClick={() => {
-								if (installingUpdate()) return;
-								setInstallingUpdate(true);
-								restartAfterUpdate()
-									.catch((error) => {
-										console.error("Failed to install update:", error);
-										toast.error(
-											typeof error === "string"
-												? error
-												: "Unable to restart Cap safely.",
-										);
-									})
-									.finally(() => setInstallingUpdate(false));
-							}}
-						>
-							{update.installed ? "Restart now" : "Install and restart"}
-						</button>
-						<button
-							type="button"
-							class="px-2.5 py-1 text-xs font-medium rounded-lg transition-colors text-gray-11 hover:text-gray-12"
-							onClick={() => toast.dismiss(t.id)}
-						>
-							Dismiss
-						</button>
-					</div>
-				</div>
-			),
-			{
-				// One toast per version: re-emissions replace instead of stacking.
-				id: `update-ready-${update.version}`,
-				duration: Number.POSITIVE_INFINITY,
-			},
-		);
-	});
 }
 
 function MainWindowHelpButton() {
@@ -1846,12 +1723,8 @@ function Page() {
 	const isRecording = () => !!currentRecording.data;
 	const isActivelyRecording = () =>
 		currentRecording.data?.status === "recording";
-	const auth = authStore.createQuery();
 	const recordingSettingsQuery = recordingDeviceSettingsStore.createQuery();
 	const generalSettings = generalSettingsStore.createQuery();
-	const serverUrl = createMemo(
-		() => generalSettings.data?.serverUrl ?? clientEnv.VITE_SERVER_URL,
-	);
 	const deviceSettings = createMemo(
 		() => recordingSettingsQuery.data as RecordingDeviceSettingsStore | null,
 	);
@@ -2002,9 +1875,7 @@ function Page() {
 			// window is always-on-top — revealing it then covers the editor.
 			const dismissal = rawOptions.targetModeDismissal ?? "cancelled";
 			const dismissalReveals =
-				dismissal === "cancelled" ||
-				dismissal === "screenshot" ||
-				dismissal === "recordingInstant";
+				dismissal === "cancelled" || dismissal === "screenshot";
 			if (dismissalReveals) {
 				void revealRecordingWindow();
 			}
@@ -2097,27 +1968,6 @@ function Page() {
 		enabled: recordingsMenuOpen(),
 	}));
 
-	const [uploadProgress, setUploadProgress] = createStore<
-		Record<string, number>
-	>({});
-	const [reuploadingPaths, setReuploadingPaths] = createSignal<Set<string>>(
-		new Set(),
-	);
-
-	createTauriEventListener(events.uploadProgressEvent, (e) => {
-		if (e.uploaded === "0" && e.total === "0") {
-			setUploadProgress(
-				produce((s) => {
-					delete s[e.video_id];
-				}),
-			);
-		} else {
-			const total = Number(e.total);
-			const progress = total > 0 ? (Number(e.uploaded) / total) * 100 : 0;
-			setUploadProgress(e.video_id, progress);
-		}
-	});
-
 	// Start failures happen before the in-progress window exists, and the picker
 	// overlay that invoked start_recording may already be dismissed — this window
 	// is the only reliable surface for telling the user why nothing started. The
@@ -2131,25 +1981,6 @@ function Page() {
 			if (!isRecordingStartCancelled(payload.error)) toast.error(payload.error);
 		}
 	});
-
-	const handleReupload = async (path: string) => {
-		setReuploadingPaths((prev) => new Set([...prev, path]));
-		try {
-			await commands.uploadExportedVideo(
-				path,
-				"Reupload",
-				new Channel<UploadProgress>(() => {}),
-				null,
-			);
-		} finally {
-			setReuploadingPaths((prev) => {
-				const next = new Set(prev);
-				next.delete(path);
-				return next;
-			});
-			refreshRecordings();
-		}
-	};
 
 	const screenshots = useQuery(() => ({
 		...listScreenshotsQuery,
@@ -2353,9 +2184,6 @@ function Page() {
 		cameraRestoreDisposed = true;
 	});
 
-	createUpdateCheck();
-	createUpdateReadyToast();
-
 	onMount(async () => {
 		if (document.activeElement instanceof HTMLElement) {
 			document.activeElement.blur();
@@ -2454,8 +2282,6 @@ function Page() {
 				}
 			},
 		);
-
-		commands.updateAuthPlan();
 
 		onCleanup(async () => {
 			(await unlistenFocus)?.();
@@ -2703,9 +2529,6 @@ function Page() {
 		}
 	});
 
-	const license = createLicenseQuery();
-
-	const signIn = createSignInMutation();
 	const stopRecording = createMutation(() => ({
 		mutationFn: async () => {
 			if (stopRequested()) return;
@@ -2766,40 +2589,28 @@ function Page() {
 	};
 
 	const openRecording = async (recording: RecordingWithPath) => {
-		if (recording.mode === "studio") {
-			let projectPath = recording.path;
-			try {
-				const meta = await commands.getRecordingMetaByPath(projectPath);
-				if (recordingMetaNeedsRecovery(meta)) {
-					projectPath = await commands.recoverRecording(projectPath);
-				}
-			} catch (error) {
-				console.error("Failed to recover recording:", error);
-				await dialog
-					.message(recordingOpenErrorMessage(error, projectPath), {
-						title: "Recover Recording",
-						kind: "error",
-					})
-					.catch((dialogError: unknown) => {
-						console.error(
-							"Failed to show recording recovery error",
-							dialogError,
-						);
-					});
-				return;
+		let projectPath = recording.path;
+		try {
+			const meta = await commands.getRecordingMetaByPath(projectPath);
+			if (recordingMetaNeedsRecovery(meta)) {
+				projectPath = await commands.recoverRecording(projectPath);
 			}
-
-			await commands.showWindow({
-				Editor: { project_path: projectPath },
-			});
-		} else {
-			const link = recording.sharing?.link;
-			if (!link) {
-				toast.error("This recording isn't ready to open yet.");
-				return;
-			}
-			await shell.open(link);
+		} catch (error) {
+			console.error("Failed to recover recording:", error);
+			await dialog
+				.message(recordingOpenErrorMessage(error, projectPath), {
+					title: "Recover Recording",
+					kind: "error",
+				})
+				.catch((dialogError: unknown) => {
+					console.error("Failed to show recording recovery error", dialogError);
+				});
+			return;
 		}
+
+		await commands.showWindow({
+			Editor: { project_path: projectPath },
+		});
 
 		await hideCurrentWindow();
 	};
@@ -2988,27 +2799,6 @@ function Page() {
 		</Transition>
 	);
 
-	const startSignInCleanup = listen("start-sign-in", async () => {
-		const revealGeneration = (await commands.getCleanCaptureState()).generation;
-		const abort = new AbortController();
-		for (const win of await getAllWebviewWindows()) {
-			if (win.label.startsWith("target-select-overlay")) {
-				await win.setIgnoreCursorEvents(true);
-				await win.hide();
-			}
-		}
-
-		await signIn.mutateAsync(abort).catch(() => {});
-
-		for (const win of await getAllWebviewWindows()) {
-			if (win.label.startsWith("target-select-overlay")) {
-				await win.setIgnoreCursorEvents(false);
-				await commands.revealCaptureWindow(revealGeneration, win.label);
-			}
-		}
-	});
-	onCleanup(() => startSignInCleanup.then((cb) => cb()));
-
 	return (
 		<div
 			onMouseEnter={handleMouseEnter}
@@ -3018,24 +2808,16 @@ function Page() {
 				<div
 					class="absolute inset-0 z-50 flex flex-col justify-center gap-4 p-5 bg-gray-2"
 					role="dialog"
-					aria-label={
-						cleanCapture.data?.mode === "instant"
-							? "Clean Instant recording"
-							: "Clean Studio recording"
-					}
+					aria-label="Clean Studio recording"
 				>
 					<strong>Record without Cap's preview and controls</strong>
 					<p class="text-sm">
-						{cleanCapture.data?.mode === "instant"
-							? "Any selected camera will be included in the video with its preview appearance. Cap's preview and controls will hide."
-							: "Any selected camera will keep recording as a separate editable track. Cap's preview and controls will hide."}
+						Any selected camera will keep recording as a separate editable
+						track. Cap's preview and controls will hide.
 					</p>
 					<p class="text-sm">
 						Press <strong>{cleanCapture.data?.shortcut}</strong> to start, then
-						use it to stop.{" "}
-						{cleanCapture.data?.mode === "instant"
-							? "Open Cap to stop and show controls."
-							: "Open Cap to pause and show controls."}
+						use it to stop. Open Cap to pause and show controls.
 					</p>
 					<button
 						type="button"
@@ -3115,7 +2897,6 @@ function Page() {
 								<IconLucideScanText class="transition-colors text-gray-11 size-4 hover:text-gray-12" />
 							</button>
 						</Tooltip>
-						<ChangelogButton />
 						{import.meta.env.DEV && (
 							<button
 								type="button"
@@ -3145,42 +2926,10 @@ function Page() {
 						when={editorRecordingFlow()}
 						fallback={
 							<div class="flex items-center space-x-1">
-								<a
-									class="*:w-[92px] *:h-auto text-(--text-primary)"
-									target="_blank"
-									href={
-										auth.data
-											? new URL("/dashboard", serverUrl()).toString()
-											: serverUrl()
-									}
-								>
+								<div class="*:w-[92px] *:h-auto text-(--text-primary)">
 									<IconCapLogoFullDark class="hidden dark:block" />
 									<IconCapLogoFull class="block dark:hidden" />
-								</a>
-								<ErrorBoundary fallback={null}>
-									<Suspense>
-										<Show
-											when={license.data?.type !== "pro"}
-											fallback={
-												<span class="text-[0.6rem] ml-2 rounded-lg border border-gray-5 px-1 py-0.5 bg-(--blue-400) text-gray-1 dark:text-gray-12">
-													{license.data?.type === "commercial"
-														? "Commercial"
-														: "Pro"}
-												</span>
-											}
-										>
-											<button
-												type="button"
-												onClick={() => {
-													void commands.showWindow("Upgrade");
-												}}
-												class="text-[0.6rem] ml-2 rounded-lg border border-gray-5 px-1 py-0.5 bg-gray-3 hover:bg-gray-5"
-											>
-												Personal
-											</button>
-										</Show>
-									</Suspense>
-								</ErrorBoundary>
+								</div>
 							</div>
 						}
 					>
@@ -3226,163 +2975,140 @@ function Page() {
 				</div>
 			</Show>
 			<div class="flex-1 min-h-0 w-full flex flex-col">
-				<Show when={signIn.isPending}>
-					<div class="flex absolute inset-0 justify-center items-center bg-gray-1 animate-in fade-in">
-						<div class="flex flex-col gap-4 justify-center items-center">
-							<span>Signing In...</span>
-
-							<Button
-								onClick={() => {
-									signIn.variables?.abort();
-									signIn.reset();
+				<Show when={activeMenu()} keyed fallback={<TargetSelectionHome />}>
+					{(variant) =>
+						variant === "display" ? (
+							<TargetMenuPanel
+								variant="display"
+								targets={displayTargetsData()}
+								isLoading={displayMenuLoading()}
+								errorMessage={displayErrorMessage()}
+								onSelect={selectDisplayTarget}
+								disabled={isRecording()}
+								onBack={() => {
+									setDisplayMenuOpen(false);
+									displayTriggerRef?.focus();
 								}}
-								variant="gray"
-								class="w-full"
-							>
-								Cancel Sign In
-							</Button>
-						</div>
-					</div>
-				</Show>
-				<Show when={!signIn.isPending}>
-					<Show when={activeMenu()} keyed fallback={<TargetSelectionHome />}>
-						{(variant) =>
-							variant === "display" ? (
-								<TargetMenuPanel
-									variant="display"
-									targets={displayTargetsData()}
-									isLoading={displayMenuLoading()}
-									errorMessage={displayErrorMessage()}
-									onSelect={selectDisplayTarget}
-									disabled={isRecording()}
-									onBack={() => {
-										setDisplayMenuOpen(false);
-										displayTriggerRef?.focus();
-									}}
-								/>
-							) : variant === "window" ? (
-								<TargetMenuPanel
-									variant="window"
-									targets={windowTargetsData()}
-									isLoading={windowMenuLoading()}
-									errorMessage={windowErrorMessage()}
-									onSelect={selectWindowTarget}
-									disabled={isRecording()}
-									onBack={() => {
-										setWindowMenuOpen(false);
-										windowTriggerRef?.focus();
-									}}
-								/>
-							) : variant === "recording" ? (
-								<TargetMenuPanel
-									variant="recording"
-									targets={recordingsData()}
-									isLoading={recordings.isPending}
-									errorMessage={
-										recordings.error ? "Failed to load recordings" : undefined
+							/>
+						) : variant === "window" ? (
+							<TargetMenuPanel
+								variant="window"
+								targets={windowTargetsData()}
+								isLoading={windowMenuLoading()}
+								errorMessage={windowErrorMessage()}
+								onSelect={selectWindowTarget}
+								disabled={isRecording()}
+								onBack={() => {
+									setWindowMenuOpen(false);
+									windowTriggerRef?.focus();
+								}}
+							/>
+						) : variant === "recording" ? (
+							<TargetMenuPanel
+								variant="recording"
+								targets={recordingsData()}
+								isLoading={recordings.isPending}
+								errorMessage={
+									recordings.error ? "Failed to load recordings" : undefined
+								}
+								onSelect={openRecording}
+								disabled={isRecording()}
+								onBack={() => {
+									setRecordingsMenuOpen(false);
+								}}
+								onViewAll={async () => {
+									await commands.showWindow({
+										Settings: { page: "recordings" },
+									});
+									hideCurrentWindow();
+								}}
+								onRefetch={refreshRecordings}
+							/>
+						) : variant === "screenshot" ? (
+							<TargetMenuPanel
+								variant="screenshot"
+								targets={screenshotsData()}
+								isLoading={screenshots.isPending}
+								errorMessage={
+									screenshots.error ? "Failed to load screenshots" : undefined
+								}
+								onSelect={openScreenshot}
+								disabled={isRecording()}
+								onBack={() => {
+									setScreenshotsMenuOpen(false);
+								}}
+								onViewAll={async () => {
+									await commands.showWindow({
+										Settings: { page: "screenshots" },
+									});
+									hideCurrentWindow();
+								}}
+							/>
+						) : variant === "camera" ? (
+							<TargetMenuPanel
+								variant="camera"
+								targets={devices.cameras}
+								selectedTarget={options.camera() ?? null}
+								isLoading={devices.isPending}
+								onSelect={(c) => {
+									if (!c) {
+										setOptions("cameraLabel", null);
+										setCamera.mutate({ model: null });
+									} else if (c.model_id) {
+										setOptions("cameraLabel", c.display_name);
+										setCamera.mutate({ model: { ModelID: c.model_id } });
+									} else {
+										setOptions("cameraLabel", c.display_name);
+										setCamera.mutate({ model: { DeviceID: c.device_id } });
 									}
-									onSelect={openRecording}
-									disabled={isRecording()}
-									onBack={() => {
-										setRecordingsMenuOpen(false);
-									}}
-									onViewAll={async () => {
-										await commands.showWindow({
-											Settings: { page: "recordings" },
-										});
-										hideCurrentWindow();
-									}}
-									uploadProgress={uploadProgress}
-									reuploadingPaths={reuploadingPaths()}
-									onReupload={handleReupload}
-									onRefetch={refreshRecordings}
-								/>
-							) : variant === "screenshot" ? (
-								<TargetMenuPanel
-									variant="screenshot"
-									targets={screenshotsData()}
-									isLoading={screenshots.isPending}
-									errorMessage={
-										screenshots.error ? "Failed to load screenshots" : undefined
-									}
-									onSelect={openScreenshot}
-									disabled={isRecording()}
-									onBack={() => {
-										setScreenshotsMenuOpen(false);
-									}}
-									onViewAll={async () => {
-										await commands.showWindow({
-											Settings: { page: "screenshots" },
-										});
-										hideCurrentWindow();
-									}}
-								/>
-							) : variant === "camera" ? (
-								<TargetMenuPanel
-									variant="camera"
-									targets={devices.cameras}
-									selectedTarget={options.camera() ?? null}
-									isLoading={devices.isPending}
-									onSelect={(c) => {
-										if (!c) {
-											setOptions("cameraLabel", null);
-											setCamera.mutate({ model: null });
-										} else if (c.model_id) {
-											setOptions("cameraLabel", c.display_name);
-											setCamera.mutate({ model: { ModelID: c.model_id } });
-										} else {
-											setOptions("cameraLabel", c.display_name);
-											setCamera.mutate({ model: { DeviceID: c.device_id } });
-										}
-										setCameraMenuOpen(false);
-										setCameraInitialSettings(null);
-									}}
-									disabled={isRecording()}
-									onBack={() => {
-										setCameraMenuOpen(false);
-										setCameraInitialSettings(null);
-									}}
-									permissions={currentPermissions()}
-									deviceSettings={deviceSettings() ?? undefined}
-									onCameraSettingsChange={(camera, settings) => {
-										void setCameraDeviceSettings(camera, settings);
-									}}
-									compatibilityStudioMode={compatibilityStudioMode()}
-									initialSettingsTarget={cameraInitialSettings()}
-								/>
-							) : variant === "microphone" ? (
-								<TargetMenuPanel
-									variant="microphone"
-									targets={devices.microphones}
-									selectedTarget={options.micName() ?? null}
-									isLoading={devices.isPending}
-									onSelect={(v) => {
-										setMicInput.mutate(v?.name ?? null);
-										setMicrophoneMenuOpen(false);
-										setMicrophoneInitialSettings(null);
-									}}
-									disabled={isRecording()}
-									onBack={() => {
-										setMicrophoneMenuOpen(false);
-										setMicrophoneInitialSettings(null);
-									}}
-									permissions={currentPermissions()}
-									deviceSettings={deviceSettings() ?? undefined}
-									onMicrophoneSettingsChange={(key, settings) => {
-										void setMicrophoneDeviceSettings(key, settings);
-									}}
-									compatibilityStudioMode={compatibilityStudioMode()}
-									initialSettingsTarget={microphoneInitialSettings()}
-								/>
-							) : (
-								<ModeInfoPanel
-									onBack={() => {
-										setModeInfoMenuOpen(false);
-									}}
-								/>
-							)
-						}
-					</Show>
+									setCameraMenuOpen(false);
+									setCameraInitialSettings(null);
+								}}
+								disabled={isRecording()}
+								onBack={() => {
+									setCameraMenuOpen(false);
+									setCameraInitialSettings(null);
+								}}
+								permissions={currentPermissions()}
+								deviceSettings={deviceSettings() ?? undefined}
+								onCameraSettingsChange={(camera, settings) => {
+									void setCameraDeviceSettings(camera, settings);
+								}}
+								compatibilityStudioMode={compatibilityStudioMode()}
+								initialSettingsTarget={cameraInitialSettings()}
+							/>
+						) : variant === "microphone" ? (
+							<TargetMenuPanel
+								variant="microphone"
+								targets={devices.microphones}
+								selectedTarget={options.micName() ?? null}
+								isLoading={devices.isPending}
+								onSelect={(v) => {
+									setMicInput.mutate(v?.name ?? null);
+									setMicrophoneMenuOpen(false);
+									setMicrophoneInitialSettings(null);
+								}}
+								disabled={isRecording()}
+								onBack={() => {
+									setMicrophoneMenuOpen(false);
+									setMicrophoneInitialSettings(null);
+								}}
+								permissions={currentPermissions()}
+								deviceSettings={deviceSettings() ?? undefined}
+								onMicrophoneSettingsChange={(key, settings) => {
+									void setMicrophoneDeviceSettings(key, settings);
+								}}
+								compatibilityStudioMode={compatibilityStudioMode()}
+								initialSettingsTarget={microphoneInitialSettings()}
+							/>
+						) : (
+							<ModeInfoPanel
+								onBack={() => {
+									setModeInfoMenuOpen(false);
+								}}
+							/>
+						)
+					}
 				</Show>
 			</div>
 			<Show when={isActivelyRecording()}>

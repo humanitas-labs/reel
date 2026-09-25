@@ -51,9 +51,7 @@ export type AutomationsStore = DeepRequired<AutomationsStoreBinding>;
 export const TRIGGER_LABELS: Record<Trigger, string> = {
 	screenshotTaken: "On screenshot taken",
 	studioRecordingFinished: "On studio recording finished",
-	instantRecordingFinished: "On instant recording finished",
 	recordingStarted: "On recording started",
-	uploadCompleted: "On upload completed",
 	videoImported: "On video imported",
 	recordingDeleted: "On recording deleted",
 };
@@ -62,11 +60,9 @@ export const ACTION_LABELS: Record<ActionType, string> = {
 	copyToClipboard: "Copy to clipboard",
 	saveToLocation: "Save to location",
 	export: "Export with profile",
-	upload: "Upload + copy link",
 	revealInFileManager: "Reveal in file manager",
 	openFile: "Open file",
 	runCommand: "Run command",
-	webhook: "Send webhook",
 	recognizeTextToClipboard: "Recognize text (OCR) to clipboard",
 	notify: "Show notification",
 	openEditor: "Open editor",
@@ -81,10 +77,9 @@ export const CONDITION_LABELS: Record<Condition["type"], string> = {
 	durationAtLeast: "Duration at least (seconds)",
 	durationAtMost: "Duration at most (seconds)",
 	windowTitleContains: "Window title contains",
-	organizationIs: "Organization is",
 };
 
-export const DANGEROUS_ACTIONS: ActionType[] = ["runCommand", "webhook"];
+export const DANGEROUS_ACTIONS: ActionType[] = ["runCommand"];
 
 type TriggerContextField =
 	| "captureTarget"
@@ -92,8 +87,7 @@ type TriggerContextField =
 	| "recordingMode"
 	| "duration"
 	| "projectPath"
-	| "filePath"
-	| "shareLink";
+	| "filePath";
 
 // The contextual data each trigger actually provides at runtime, mirroring the Rust `TriggerContext`
 // populated per trigger in `automation.rs`. Used to flag conditions/actions that depend on data a
@@ -101,27 +95,21 @@ type TriggerContextField =
 const TRIGGER_CONTEXT: Record<Trigger, readonly TriggerContextField[]> = {
 	screenshotTaken: ["captureTarget", "windowTitle", "projectPath", "filePath"],
 	studioRecordingFinished: ["recordingMode", "duration", "projectPath"],
-	instantRecordingFinished: ["recordingMode", "projectPath", "shareLink"],
 	recordingStarted: [],
-	uploadCompleted: ["projectPath", "shareLink"],
 	videoImported: ["projectPath"],
 	recordingDeleted: ["projectPath"],
 };
 
-const CONDITION_REQUIRES: Record<
-	Condition["type"],
-	TriggerContextField | null
-> = {
+const CONDITION_REQUIRES: Record<Condition["type"], TriggerContextField> = {
 	captureTargetIs: "captureTarget",
 	recordingModeIs: "recordingMode",
 	durationAtLeast: "duration",
 	durationAtMost: "duration",
 	windowTitleContains: "windowTitle",
-	organizationIs: null,
 };
 
 // Each action lists the context fields it can consume; it applies when the trigger provides at least
-// one of them. Actions with no entry (notify, runCommand, webhook) always apply.
+// one of them. Actions with no entry (notify, runCommand) always apply.
 const ACTION_REQUIRES: Partial<
 	Record<ActionType, readonly TriggerContextField[]>
 > = {
@@ -134,7 +122,6 @@ const ACTION_REQUIRES: Partial<
 	deleteLocalFiles: ["projectPath"],
 	revealInFileManager: ["filePath", "projectPath"],
 	openEditor: ["filePath", "projectPath"],
-	upload: ["filePath", "projectPath"],
 };
 
 // `skipEditor` only does anything for the two triggers whose post-capture window is gated on it.
@@ -147,9 +134,7 @@ export function conditionAppliesToTrigger(
 	type: Condition["type"],
 	trigger: Trigger,
 ): boolean {
-	const required = CONDITION_REQUIRES[type];
-	if (required === null) return false;
-	return TRIGGER_CONTEXT[trigger].includes(required);
+	return TRIGGER_CONTEXT[trigger].includes(CONDITION_REQUIRES[type]);
 }
 
 export function actionAppliesToTrigger(
@@ -181,13 +166,6 @@ export function defaultActionForType(type: ActionType): Action {
 				},
 				destination: "projectFolder",
 			};
-		case "upload":
-			return {
-				type,
-				organizationId: null,
-				copyLink: true,
-				openInBrowser: false,
-			};
 		case "revealInFileManager":
 			return { type };
 		case "openFile":
@@ -200,14 +178,6 @@ export function defaultActionForType(type: ActionType): Action {
 				cwd: null,
 				env: {},
 				useShell: false,
-			};
-		case "webhook":
-			return {
-				type,
-				url: "",
-				method: "POST",
-				headers: {},
-				bodyTemplate: null,
 			};
 		case "recognizeTextToClipboard":
 			return { type };
@@ -236,8 +206,6 @@ export function defaultConditionForType(type: Condition["type"]): Condition {
 			return { type, secs: 300 };
 		case "windowTitleContains":
 			return { type, pattern: "" };
-		case "organizationIs":
-			return { type, id: "" };
 	}
 }
 

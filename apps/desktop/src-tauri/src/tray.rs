@@ -29,40 +29,6 @@ const MAX_PREVIOUS_ITEMS: usize = 6;
 const MAX_TITLE_LENGTH: usize = 30;
 const THUMBNAIL_SIZE: u32 = 32;
 
-#[cfg(target_os = "linux")]
-#[derive(Clone, Copy)]
-enum LinuxTrayIcon {
-    Instant,
-    Screenshot,
-    Studio,
-    Stop,
-}
-
-#[cfg(target_os = "linux")]
-impl LinuxTrayIcon {
-    fn name(self) -> &'static str {
-        match self {
-            Self::Instant => "so.cap.desktop-tray-instant-symbolic",
-            Self::Screenshot => "so.cap.desktop-tray-screenshot-symbolic",
-            Self::Studio => "so.cap.desktop-tray-studio-symbolic",
-            Self::Stop => "so.cap.desktop-tray-stop-symbolic",
-        }
-    }
-
-    fn svg(self) -> &'static str {
-        match self {
-            Self::Instant => {
-                include_str!("../icons/linux/so.cap.desktop-tray-instant-symbolic.svg")
-            }
-            Self::Screenshot => {
-                include_str!("../icons/linux/so.cap.desktop-tray-screenshot-symbolic.svg")
-            }
-            Self::Studio => include_str!("../icons/linux/so.cap.desktop-tray-studio-symbolic.svg"),
-            Self::Stop => include_str!("../icons/linux/so.cap.desktop-tray-stop-symbolic.svg"),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum TrayItem {
     OpenCap,
@@ -77,7 +43,6 @@ pub enum TrayItem {
     Quit,
     PreviousItem(String),
     ModeStudio,
-    ModeInstant,
     ModeScreenshot,
     RequestPermissions,
 }
@@ -99,7 +64,6 @@ impl From<TrayItem> for MenuId {
                 return format!("{PREVIOUS_ITEM_PREFIX}{id}").into();
             }
             TrayItem::ModeStudio => "mode_studio",
-            TrayItem::ModeInstant => "mode_instant",
             TrayItem::ModeScreenshot => "mode_screenshot",
             TrayItem::RequestPermissions => "request_permissions",
         }
@@ -129,7 +93,6 @@ impl TryFrom<MenuId> for TrayItem {
             "open_settings" => Ok(TrayItem::OpenSettings),
             "quit" => Ok(TrayItem::Quit),
             "mode_studio" => Ok(TrayItem::ModeStudio),
-            "mode_instant" => Ok(TrayItem::ModeInstant),
             "mode_screenshot" => Ok(TrayItem::ModeScreenshot),
             "request_permissions" => Ok(TrayItem::RequestPermissions),
             value => Err(format!("Invalid tray item id {value}")),
@@ -442,7 +405,6 @@ fn create_mode_submenu(app: &AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
 
     let modes = [
         (TrayItem::ModeStudio, RecordingMode::Studio, "Studio"),
-        (TrayItem::ModeInstant, RecordingMode::Instant, "Instant"),
         (
             TrayItem::ModeScreenshot,
             RecordingMode::Screenshot,
@@ -481,7 +443,7 @@ fn build_tray_menu(app: &AppHandle, cache: &PreviousItemsCache) -> tauri::Result
                 &MenuItem::with_id(
                     app,
                     "version",
-                    format!("Cap v{}", env!("CARGO_PKG_VERSION")),
+                    format!("Reel v{}", env!("CARGO_PKG_VERSION")),
                     false,
                     None::<&str>,
                 )?,
@@ -597,7 +559,7 @@ fn build_tray_menu(app: &AppHandle, cache: &PreviousItemsCache) -> tauri::Result
     menu.append(&MenuItem::with_id(
         app,
         "version",
-        format!("Cap v{}", env!("CARGO_PKG_VERSION")),
+        format!("Reel v{}", env!("CARGO_PKG_VERSION")),
         false,
         None::<&str>,
     )?)?;
@@ -706,58 +668,10 @@ pub fn get_mode_icon(mode: RecordingMode) -> &'static [u8] {
     }
     match mode {
         RecordingMode::Studio => include_bytes!("../icons/tray-default-icon-studio.png"),
-        RecordingMode::Instant => include_bytes!("../icons/tray-default-icon-instant.png"),
         RecordingMode::Screenshot => include_bytes!("../icons/tray-default-icon-screenshot.png"),
     }
 }
 
-#[cfg(target_os = "linux")]
-fn linux_tray_icon_for_mode(mode: RecordingMode) -> LinuxTrayIcon {
-    match mode {
-        RecordingMode::Studio => LinuxTrayIcon::Studio,
-        RecordingMode::Instant => LinuxTrayIcon::Instant,
-        RecordingMode::Screenshot => LinuxTrayIcon::Screenshot,
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn write_linux_tray_symbolic_icon(icon: LinuxTrayIcon) -> std::io::Result<PathBuf> {
-    let dir = dirs::runtime_dir()
-        .unwrap_or_else(std::env::temp_dir)
-        .join("cap-tray-icons");
-    std::fs::create_dir_all(&dir)?;
-
-    let path = dir.join(format!("{}.svg", icon.name()));
-    let svg = icon.svg().as_bytes();
-    if std::fs::read(&path).ok().as_deref() != Some(svg) {
-        std::fs::write(path, svg)?;
-    }
-
-    Ok(dir)
-}
-
-#[cfg(target_os = "linux")]
-fn set_linux_tray_icon(tray: &TrayIcon<tauri::Wry>, icon: LinuxTrayIcon) -> tauri::Result<()> {
-    let icon_dir = write_linux_tray_symbolic_icon(icon).map_err(tauri::Error::Io)?;
-    let icon_name = icon.name().to_string();
-
-    tray.with_inner_tray_icon(move |inner| unsafe {
-        let indicator = inner.app_indicator() as *mut libappindicator::AppIndicator;
-        if let Some(indicator) = indicator.as_mut() {
-            indicator.set_icon_theme_path(&icon_dir.to_string_lossy());
-            indicator.set_icon_full(&icon_name, "Cap tray icon");
-        }
-    })?;
-
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn set_tray_icon_for_mode(tray: &TrayIcon<tauri::Wry>, mode: RecordingMode) -> tauri::Result<()> {
-    set_linux_tray_icon(tray, linux_tray_icon_for_mode(mode))
-}
-
-#[cfg(not(target_os = "linux"))]
 fn set_tray_icon_for_mode(tray: &TrayIcon<tauri::Wry>, mode: RecordingMode) -> tauri::Result<()> {
     let icon = Image::from_bytes(get_mode_icon(mode))?;
     tray.set_icon(Some(icon))?;
@@ -765,12 +679,6 @@ fn set_tray_icon_for_mode(tray: &TrayIcon<tauri::Wry>, mode: RecordingMode) -> t
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-fn set_tray_stop_icon(tray: &TrayIcon<tauri::Wry>) -> tauri::Result<()> {
-    set_linux_tray_icon(tray, LinuxTrayIcon::Stop)
-}
-
-#[cfg(not(target_os = "linux"))]
 fn set_tray_stop_icon(tray: &TrayIcon<tauri::Wry>) -> tauri::Result<()> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray-stop-icon.png"))?;
     tray.set_icon(Some(icon))?;
@@ -987,9 +895,6 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 Ok(TrayItem::ModeStudio) => {
                     handle_mode_selection(app, RecordingMode::Studio, &cache);
                 }
-                Ok(TrayItem::ModeInstant) => {
-                    handle_mode_selection(app, RecordingMode::Instant, &cache);
-                }
                 Ok(TrayItem::ModeScreenshot) => {
                     handle_mode_selection(app, RecordingMode::Screenshot, &cache);
                 }
@@ -1022,13 +927,6 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(&app);
-
-    #[cfg(target_os = "linux")]
-    if let Some(tray) = app.tray_by_id("tray")
-        && let Err(error) = set_tray_icon_for_mode(&tray, current_mode)
-    {
-        tracing::warn!("Failed to initialize Linux tray icon: {error}");
-    }
 
     RecordingStarted::listen_any(&app, {
         let app = app.clone();

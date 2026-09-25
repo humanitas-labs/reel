@@ -454,7 +454,7 @@ mod tests {
                 camera: Some(DeviceOrModelID::DeviceID("camera-1".to_string())),
                 mic_label: Some("microphone-1".to_string()),
                 capture_system_audio: false,
-                mode: RecordingMode::Instant,
+                mode: RecordingMode::Studio,
             })
         );
     }

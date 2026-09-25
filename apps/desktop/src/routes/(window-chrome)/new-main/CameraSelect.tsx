@@ -8,7 +8,6 @@ import {
 	createSignal,
 	Show,
 } from "solid-js";
-import { trackEvent } from "~/utils/analytics";
 import { createCurrentRecordingQuery } from "~/utils/queries";
 import {
 	type CameraInfo,
@@ -261,11 +260,6 @@ export function CameraSelectBase(props: {
 			return requestPermission("camera", props.permissions?.camera);
 
 		props.onChange(cameraLabel);
-
-		trackEvent("camera_selected", {
-			camera_name: cameraLabel?.display_name ?? null,
-			enabled: !!cameraLabel,
-		});
 	};
 
 	const showHiddenIndicator = () =>

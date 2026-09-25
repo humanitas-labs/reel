@@ -1682,20 +1682,6 @@ impl RecoveryManager {
         Self::finalize_instant_output_with_completion(display_dir, audio_dir, output, None)
     }
 
-    pub fn finalize_completed_instant_output(
-        display_dir: &Path,
-        audio_dir: &Path,
-        output: &Path,
-        completion: crate::instant_recording::CleanInstantRecording,
-    ) -> Result<PathBuf, RecoveryError> {
-        Self::finalize_instant_output_with_completion(
-            display_dir,
-            audio_dir,
-            output,
-            Some(completion.into_parts()),
-        )
-    }
-
     fn finalize_instant_output_with_completion(
         display_dir: &Path,
         audio_dir: &Path,

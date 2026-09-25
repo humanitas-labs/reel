@@ -40,11 +40,7 @@ import {
 import { generalSettingsStore } from "~/store";
 import { cameraPresentationInput } from "~/utils/camera-presentation";
 import { createTauriEventListener } from "~/utils/createEventListener";
-import {
-	createCameraMutation,
-	createCurrentRecordingQuery,
-	revealRecordingWindow,
-} from "~/utils/queries";
+import { createCameraMutation, revealRecordingWindow } from "~/utils/queries";
 import {
 	type CanvasControls,
 	createImageDataWS,
@@ -366,8 +362,6 @@ function LegacyCameraPreviewPage(props: {
 	issue: Accessor<CameraPreviewIssue | null>;
 }) {
 	const isCameraOnlyMode = () => getCameraOnlyMode();
-	const currentRecording = createCurrentRecordingQuery();
-	const isInstantRecording = () => currentRecording.data?.mode === "instant";
 
 	const [state, setState] = makePersisted(
 		createStore<CameraWindowState>(getDefaultCameraWindowState()),
@@ -590,9 +584,8 @@ function LegacyCameraPreviewPage(props: {
 	});
 
 	const createSocket = () => {
-		const instantQuery = isInstantRecording() ? "?instant=true" : "";
 		const [socket, _isConnected, _isWorkerReady, controls] = createImageDataWS(
-			`ws://localhost:${cameraWsPort}${instantQuery}`,
+			`ws://localhost:${cameraWsPort}`,
 			(frame) => {
 				if (canvasControls === controls) updateFrameState(frame);
 			},
@@ -704,18 +697,6 @@ function LegacyCameraPreviewPage(props: {
 			stopSocket();
 		}
 	});
-
-	createEffect(
-		on(
-			isInstantRecording,
-			() => {
-				if (!isWindowVisible()) return;
-				stopSocket();
-				startSocket();
-			},
-			{ defer: true },
-		),
-	);
 
 	createEffect(
 		on(

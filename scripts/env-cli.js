@@ -55,7 +55,6 @@ async function main() {
 	let usingDockerEnvironment = false;
 
 	if (hasWeb) {
-		envs.VITE_SERVER_URL = "http://localhost:3000";
 		envs.WEB_URL = "http://localhost:3000";
 		envs.NEXTAUTH_URL = envs.WEB_URL;
 		envs.MEDIA_SERVER_URL = "http://localhost:3456";
@@ -144,34 +143,6 @@ async function main() {
 
 	if (hasDesktop) {
 		envs.RUST_BACKTRACE = "1";
-
-		const values = await group(
-			{
-				VITE_SERVER_URL: () => {
-					if (!hasWeb)
-						return text({
-							message: "VITE_SERVER_URL",
-							placeholder: "https://cap.so",
-							defaultValue: "https://cap.so",
-						});
-				},
-				VITE_VERCEL_AUTOMATION_BYPASS_SECRET: () => {
-					if (!hasWeb)
-						return text({
-							message:
-								"VITE_VERCEL_AUTOMATION_BYPASS_SECRET - skip if you're not a Cap team member",
-							placeholder: allEnvs.VITE_VERCEL_AUTOMATION_BYPASS_SECRET,
-							defaultValue: allEnvs.VITE_VERCEL_AUTOMATION_BYPASS_SECRET,
-						});
-				},
-			},
-			{ onCancel: () => process.exit(0) },
-		);
-
-		for (const [key, value] of Object.entries(values)) {
-			if (value === undefined || value === "undefined") continue;
-			envs[key] = value;
-		}
 	}
 
 	await fs.writeFile(

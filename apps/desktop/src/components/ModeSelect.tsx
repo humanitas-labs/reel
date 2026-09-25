@@ -63,12 +63,6 @@ const ModeSelect = (props: { onClose?: () => void; standalone?: boolean }) => {
 
 	const modeOptions = [
 		{
-			mode: "instant" as const,
-			title: "Instant",
-			description: "Share instantly with a link. Uploads as you record.",
-			icon: IconCapInstant,
-		},
-		{
 			mode: "studio" as const,
 			title: "Studio",
 			description: "Highest quality local recording for editing later.",
@@ -102,7 +96,7 @@ const ModeSelect = (props: { onClose?: () => void; standalone?: boolean }) => {
 				</div>
 			</Show>
 
-			<div class="grid grid-cols-3 gap-4">
+			<div class="grid grid-cols-2 gap-4">
 				{modeOptions.map((option) => (
 					<ModeOption
 						mode={option.mode}

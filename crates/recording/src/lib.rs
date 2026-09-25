@@ -6,7 +6,6 @@ pub mod defaults;
 pub mod diagnostics;
 pub mod feeds;
 pub mod fragmentation;
-pub mod instant_recording;
 pub mod log_redaction;
 pub mod memory_profiling;
 mod output_pipeline;
@@ -18,9 +17,6 @@ pub mod sources;
 pub mod studio_recording;
 pub mod sync_calibration;
 pub mod track_heal;
-pub mod upload_preparation;
-pub mod upload_resume;
-pub mod upload_verification;
 
 #[cfg(target_os = "linux")]
 pub use capture_pipeline::target_to_display_and_crop;
@@ -31,10 +27,8 @@ pub mod test_sources;
 
 pub use defaults::{
     CAMERA_ACTIVE_STUDIO_MAX_FPS, DEFAULT_CAPTURE_KEYBOARD_EVENTS,
-    DEFAULT_CRASH_RECOVERY_RECORDING, DEFAULT_CUSTOM_CURSOR_CAPTURE, DEFAULT_INSTANT_MODE_FPS,
-    DEFAULT_INSTANT_MODE_MAX_RESOLUTION, DEFAULT_OUT_OF_PROCESS_MUXER, DEFAULT_STUDIO_MAX_FPS,
-    FREE_INSTANT_MODE_MAX_RESOLUTION, PRO_INSTANT_MODE_MAX_RESOLUTION, RecordingDefaults,
-    default_studio_recording_quality,
+    DEFAULT_CRASH_RECOVERY_RECORDING, DEFAULT_CUSTOM_CURSOR_CAPTURE, DEFAULT_OUT_OF_PROCESS_MUXER,
+    DEFAULT_STUDIO_MAX_FPS, RecordingDefaults, default_studio_recording_quality,
 };
 pub use feeds::{camera::CameraFeed, microphone::MicrophoneFeed};
 pub use output_pipeline::oop_muxer;
@@ -53,9 +47,8 @@ use crate::{feeds::camera::CameraFeedLock, sources::screen_capture::ScreenCaptur
 #[derive(specta::Type, Serialize, Deserialize, Clone, Debug, Copy, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum RecordingMode {
-    Studio,
     #[default]
-    Instant,
+    Studio,
     Screenshot,
 }
 
@@ -161,22 +154,4 @@ pub enum RecordingError {
 
     #[error("IO/{0}")]
     Io(#[from] std::io::Error),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum RecordingHealth {
-    Healthy,
-    Repaired { original_issue: String },
-    Degraded { issues: Vec<String> },
-    Damaged { reason: String },
-}
-
-impl RecordingHealth {
-    pub fn is_uploadable(&self) -> bool {
-        matches!(
-            self,
-            Self::Healthy | Self::Repaired { .. } | Self::Degraded { .. }
-        )
-    }
 }

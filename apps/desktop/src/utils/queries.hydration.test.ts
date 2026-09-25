@@ -76,7 +76,6 @@ function loadOptions(cameraID: unknown) {
 			cameraLabel: null,
 			cameraID,
 			mode: "studio",
-			organizationId: null,
 		}),
 	);
 	let resolveSettings: (settings: Record<string, unknown>) => void = () => {};

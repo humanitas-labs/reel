@@ -14,21 +14,12 @@ type ModeButtonConfig = {
 	mode: RecordingMode;
 	label: string;
 	description: string;
-	settingsSection: "instant-quality" | "studio-quality" | null;
+	settingsSection: "studio-quality" | null;
 	icon: (props: { class?: string }) => JSX.Element;
 	iconClass: string;
 };
 
 const MODE_BUTTONS: ModeButtonConfig[] = [
-	{
-		mode: "instant",
-		label: "Instant mode",
-		description:
-			"No rendering required — uploads on the fly so you can share the link the moment you stop.",
-		settingsSection: "instant-quality",
-		icon: (p) => <IconCapInstant {...p} />,
-		iconClass: "size-4 invert dark:invert-0",
-	},
 	{
 		mode: "studio",
 		label: "Studio mode",
@@ -60,9 +51,7 @@ const Mode = (props: ModeProps) => {
 		}
 	};
 
-	const openQualitySettings = async (
-		section: "instant-quality" | "studio-quality",
-	) => {
+	const openQualitySettings = async (section: "studio-quality") => {
 		try {
 			localStorage.setItem("cap.settings.scrollToSection", section);
 		} catch {}

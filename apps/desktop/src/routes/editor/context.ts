@@ -31,7 +31,6 @@ import {
 import { defaultKeyboardSettings } from "~/store/keyboard";
 import { createTauriEventListener } from "~/utils/createEventListener";
 import { createPresets } from "~/utils/createPresets";
-import { createCustomDomainQuery } from "~/utils/queries";
 import { isRecordingStorageError } from "~/utils/recording";
 import {
 	type CanvasControls,
@@ -154,7 +153,7 @@ export type ModalDialog =
 	  };
 
 export type LayoutMode =
-	| { type: "export"; destination?: "link" }
+	| { type: "export" }
 	| { type: "transcript" }
 	| { type: "clips" };
 
@@ -1783,11 +1782,6 @@ export const [EditorContextProvider, useBaseEditorContext] =
 								| { type: "copying" }
 								| { type: "done" }
 						  ))
-						| ({ action: "upload" } & (
-								| RenderState
-								| { type: "uploading"; progress: number }
-								| { type: "done" }
-						  ))
 				  )
 			>({ type: "idle" });
 
@@ -2136,7 +2130,6 @@ export const [EditorContextProvider, useBaseEditorContext] =
 						console.error("Failed to load system audio waveforms:", error),
 					);
 			});
-			const customDomain = createCustomDomainQuery();
 			const hasRecordedKeyboardEvents = createMemo(() => {
 				const meta = props.meta();
 				if (meta.type === "single") return false;
@@ -2479,7 +2472,6 @@ export const [EditorContextProvider, useBaseEditorContext] =
 				meta() {
 					return props.meta();
 				},
-				customDomain,
 				refetchMeta: () => props.refetchMeta(),
 				editorInstance: props.editorInstance,
 				dialog,
@@ -2534,7 +2526,7 @@ export type { EditorPreviewQuality } from "~/utils/tauri";
 
 function transformMeta({ pretty_name, ...rawMeta }: RecordingMeta) {
 	if ("fps" in rawMeta) {
-		throw new Error("Instant mode recordings cannot be edited");
+		throw new Error("This recording format cannot be edited");
 	}
 
 	let meta:

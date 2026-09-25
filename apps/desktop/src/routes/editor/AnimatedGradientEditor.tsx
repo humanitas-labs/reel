@@ -11,7 +11,7 @@ import {
 } from "solid-js";
 import { produce } from "solid-js/store";
 import { animatedGradientsStore } from "~/store";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import {
 	type AnimatedGradientConfig,
 	type AnimatedGradientControl,
@@ -142,7 +142,7 @@ function ControlRow(props: {
 }
 
 export function AnimatedGradientEditor(props: {
-	brandColorSwatches?: OrganizationBrandColorSwatch[];
+	brandColorSwatches?: BrandColorSwatch[];
 }) {
 	const { project, setProject, projectHistory } = useEditorContext();
 	const catalog = createQuery(() => ({

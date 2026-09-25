@@ -6,14 +6,13 @@ These rules are enforced by CI (`cargo clippy -D warnings`, Biome). Fixing them 
 
 ### Zero-tolerance rules
 - **Default to no code comments. Add a comment only after solving a bug or working through a complex issue, and only when it captures non-obvious context that a future investigator or reviewer genuinely needs** — e.g. why the fix looks the way it does, the upstream/platform bug being worked around, a non-obvious invariant or trade-off chosen after investigation, or a link to the PR/issue that explains the decision. Bad cases that remain banned: narrating what the code does, restating types, JSDoc that paraphrases parameter names, "TODO: refactor" or "this should be cleaner" notes, and any comment that just describes the change you are currently making. When in doubt, prefer better naming/types over a comment. Applies to every language: Rust, TS, JS, Python, shell, SQL, TOML, etc.
-- **Never hand-edit generated files**: `**/tauri.ts`, `apps/desktop/src-tauri/gen/**`, `packages/ui-solid/src/auto-imports.d.ts`, Drizzle migration SQL under `packages/database/migrations/`. These are regenerated (e.g. `tauri.ts` only on debug desktop runs) but stay committed because CI typecheck and fresh clones depend on them; commit binding changes alongside the Rust change that produced them. For database schema changes, run `bun run db:generate` and commit the generated SQL, snapshot, and journal changes alongside the schema change. Generating and committing these artifacts is required; modifying generated output by hand is prohibited. Note: `apps/desktop/src/utils/queries.ts` is hand-written, not generated — edit it normally.
-- **Never start additional dev servers** (`bun run dev`, `bun run dev:web`, `bun run dev:desktop`, Docker services). Assume they are already running. The `/building` workflow may start a session-owned web server in its isolated worktree on an allocated port through its environment wrapper, or services inside its owned sandbox. This exception does not permit restarting shared services or launching a native app against the user's existing profile.
+- **Never hand-edit generated files**: `**/tauri.ts`, `apps/desktop/src-tauri/gen/**`, `packages/ui-solid/src/auto-imports.d.ts`. These are regenerated (e.g. `tauri.ts` only on debug desktop runs) but stay committed because CI typecheck and fresh clones depend on them; commit binding changes alongside the Rust change that produced them. Generating and committing these artifacts is required; modifying generated output by hand is prohibited. Note: `apps/desktop/src/utils/queries.ts` is hand-written, not generated — edit it normally.
+- **Never start additional dev servers** (`bun run dev:desktop`). Assume it is already running. Do not launch a native app against the user's existing profile.
 
 ### Post-edit checks (run before you say "done")
 - Prefer scoped, fast checks over full workspace gates. Do not run long full-repo checks by default.
 - Touched any Rust file → `cargo fmt --all` and `cargo check -p <crate>`. Add `--all-targets`, `--workspace`, or clippy only when explicitly requested, when preparing CI/PR final validation, or when the change needs broader coverage.
 - Touched any TS / JS / JSON / CSS / MD file → run the narrowest applicable formatter/linter on touched files first, such as `bun run biome check --write <files>`. Use full `bun run format`, `bun run lint`, and `bun run typecheck` only when explicitly requested or when the change spans shared types/packages.
-- Touched DB schema → `bun run db:generate` before relying on it.
 
 ### Rust — write the clippy-clean form the FIRST time
 All patterns below are `deny` in the workspace `[workspace.lints]` in `Cargo.toml`. Do not emit the left column; always emit the right column.
@@ -41,33 +40,31 @@ Additionally, `unused_must_use = "deny"` applies to all Rust code: every `Result
 - **Quotes: double.** `"foo"`, never `'foo'`, for JS/TS string literals.
 - **`organizeImports: on`** — imports are sorted/grouped automatically; don't leave unused imports or hand-sort against the grain.
 - **Recommended lint ruleset is on**, with `suspicious.noShadowRestrictedNames` disabled. Everything else (unused vars, `noExplicitAny`, dead code, etc.) applies.
-- Desktop code under `apps/desktop/**` has a11y rules disabled; they are enforced everywhere else (`apps/web`, `packages/ui`, etc.).
+- Desktop code under `apps/desktop/**` has a11y rules disabled; they are enforced everywhere else (`packages/ui-solid`).
 - CSS overrides: `noUnknownAtRules`, `noUnknownTypeSelector`, `noDescendingSpecificity` are off for `**/*.css`.
 
 ### TypeScript — strictness
-- Avoid `any`. Use `unknown` + narrowing, or existing shared types from `@cap/utils`, `@cap/web-domain`, generated bindings, etc.
+- Avoid `any`. Use `unknown` + narrowing, or existing shared types from the generated bindings.
 - Do not introduce `@ts-expect-error` / `@ts-ignore` without a concrete reason. Prefer fixing the type.
 
 ## Project Structure & Modules
 - Turborepo monorepo:
-  - `apps/desktop` (Tauri v2 + SolidStart), `apps/web` (Next.js), `apps/cli` (Rust CLI).
-  - `packages/*` shared libs (e.g., `database`, `ui`, `ui-solid`, `utils`, `web-*`).
+  - `apps/desktop` (Tauri v2 + SolidStart), `apps/cli` (Rust CLI and export sidecar).
+  - `packages/*` shared libs (`ui-solid`, `tsconfig`, `config`).
   - `crates/*` Rust media/recording/rendering/camera crates.
-  - `scripts/*`, `infra/`, and `packages/local-docker/` for tooling and local services.
+  - `scripts/*` for build tooling.
 
 ## Build, Test, Develop
-- Install: `bun install`; setup: `bun run env-setup` then `bun run cap-setup`.
-- Dev: `bun run dev` (web+desktop). Desktop only: `bun run dev:desktop`. Web only: `bun run dev:web` or `cd apps/web && bun run dev`.
+- Install: `bun install --frozen-lockfile`; setup: `bun run cap-setup`.
+- Dev: `bun run dev:desktop`.
 - Build: `bun run build` (Turbo). Desktop release: `bun run tauri:build`.
-- DB: `bun run db:generate` → `bun run db:push` → `bun run db:studio`.
-- Docker: `bun run docker:up | docker:stop | docker:clean`.
 - Quality: `bun run lint`, `bun run format`, `bun run typecheck`. Rust: `cargo build -p <crate>`, `cargo test -p <crate>`.
 
 ## Coding Style & Naming
 - TypeScript / JS / JSON / CSS: **tab indent** and **double-quoted** strings, enforced by Biome (see `biome.json`). Do not configure per-file overrides.
 - Rust: `rustfmt` default style + the denied clippy lints in the Pre-Generation Invariants above.
 - Naming: files kebab‑case (`user-menu.tsx`); React/Solid components PascalCase; hooks `useX`; Rust modules snake_case; crates kebab‑case.
-- Runtime: Node 20, Bun 1.4.0, Rust 1.88+, Docker for MySQL/MinIO.
+- Runtime: Node 20, Bun 1.4.x, Rust 1.88+.
 
 (See **Pre-Generation Invariants** at the top of this file for the comments policy and the denied clippy/Biome patterns. Those are the source of truth — do not duplicate or weaken them here.)
 
@@ -82,10 +79,9 @@ Additionally, `unused_must_use = "deny"` applies to all Rust code: every `Result
 - PRs: clear description, linked issues, screenshots/GIFs for UI, env/migration notes. Keep scope tight and update docs when behavior changes.
 
 ## Agent‑Specific Practices
-- Do not start extra servers; use `bun run dev:web` or `bun run dev:desktop` as needed.
+- Do not start extra servers; use `bun run dev:desktop` as needed.
 - Prefer existing scripts and Turbo filters over ad‑hoc commands; clear `.turbo` only when necessary.
-- Database flow: always `db:generate` → `db:push` before relying on new schema.
-- Keep secrets out of VCS; configure via `.env` from `bun run env-setup`.
+- Keep secrets out of VCS; configure via `.env`.
 - macOS note: desktop permissions (screen/mic) apply to the terminal running `bun run dev:desktop`.
 - All other agent-facing rules (comments policy, no editing generated files, clippy/Biome shape, post-edit gates) live in **Pre-Generation Invariants** at the top of this file.
 
@@ -100,13 +96,6 @@ When asked to inspect, review, optimize, secure, or fix something, do not stop a
 - verify the actual user-visible outcome where practical, not only compile/lint success
 
 Prefer the smallest correct fix, but only after checking whether the narrow fix misses related consequences.
-
-## Effect Usage
-- Next.js API routes in `apps/web/app/api/*` are built with `@effect/platform`'s `HttpApi` builder; copy the existing class/group/endpoint pattern instead of ad-hoc handlers.
-- Acquire backend services (e.g., `Videos`, `S3Buckets`) inside `Effect.gen` blocks and wire them through `Layer.provide`/`HttpApiBuilder.group`, translating domain errors to `HttpApiError` variants.
-- Convert the effectful API to a Next.js handler with `apiToHandler(ApiLive)` from `@/lib/server` and export the returned `handler`—avoid calling `runPromise` inside route files.
-- On the server, run effects through `EffectRuntime.runPromise` from `@/lib/server`, typically after `provideOptionalAuth`, so cookies and per-request context are attached automatically.
-- On the client, use `useEffectQuery`/`useEffectMutation` from `@/lib/EffectRuntime`; they already bind the managed runtime and tracing so you shouldn't call `EffectRuntime.run*` directly in components.
 
 ## Code Formatting & Lint Checks
 Before declaring any task complete, the agent should run the fastest useful check for every file type it touched and report anything skipped.

@@ -1,9 +1,9 @@
 import { createWritableMemo } from "@solid-primitives/memo";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import {
 	getHexColorDigitCount,
 	normalizeOpaqueHexColor,
 } from "~/utils/hex-color";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
 import { BrandColorsDropdown } from "./BrandColorsDropdown";
 import { getColorPreviewBorderColor } from "./color-utils";
 import { TextInput } from "./TextInput";
@@ -100,7 +100,7 @@ export function getTextWeightLabel(weight: number | null | undefined) {
 export function HexColorInput(props: {
 	value: string;
 	onChange: (value: string) => void;
-	brandColorSwatches?: OrganizationBrandColorSwatch[];
+	brandColorSwatches?: BrandColorSwatch[];
 }) {
 	const [text, setText] = createWritableMemo(() => props.value);
 	let prevColor = props.value;

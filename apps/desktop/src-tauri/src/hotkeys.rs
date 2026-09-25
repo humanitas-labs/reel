@@ -55,7 +55,6 @@ impl From<Hotkey> for Shortcut {
 #[allow(clippy::enum_variant_names)]
 pub enum HotkeyAction {
     StartStudioRecording,
-    StartInstantRecording,
     StopRecording,
     RestartRecording,
     TogglePauseRecording,
@@ -346,9 +345,6 @@ async fn handle_hotkey(app: AppHandle, action: HotkeyAction) -> Result<(), Strin
         HotkeyAction::StartStudioRecording => {
             start_recording_from_hotkey(app, cap_recording::RecordingMode::Studio).await
         }
-        HotkeyAction::StartInstantRecording => {
-            start_recording_from_hotkey(app, cap_recording::RecordingMode::Instant).await
-        }
         HotkeyAction::StopRecording => recording::stop_recording(app.clone(), app.state()).await,
         HotkeyAction::RestartRecording => recording::restart_recording(app.clone(), app.state())
             .await
@@ -364,8 +360,7 @@ async fn handle_hotkey(app: AppHandle, action: HotkeyAction) -> Result<(), Strin
                 .unwrap_or_default();
 
             let next = match current {
-                cap_recording::RecordingMode::Studio => cap_recording::RecordingMode::Instant,
-                cap_recording::RecordingMode::Instant => cap_recording::RecordingMode::Screenshot,
+                cap_recording::RecordingMode::Studio => cap_recording::RecordingMode::Screenshot,
                 cap_recording::RecordingMode::Screenshot => cap_recording::RecordingMode::Studio,
             };
 

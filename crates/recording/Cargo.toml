@@ -132,6 +132,3 @@ name = "real-device-test-runner"
 
 [[example]]
 name = "memory-stress-test"
-
-[[example]]
-name = "instant-mode-profile"

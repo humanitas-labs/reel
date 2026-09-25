@@ -8,7 +8,7 @@ import {
 	defaultKeyboardSettings,
 	type KeyboardSettings,
 } from "~/store/keyboard";
-import type { OrganizationBrandColorSwatch } from "~/utils/organization-branding";
+import type { BrandColorSwatch } from "~/utils/brand-colors";
 import { commands } from "~/utils/tauri";
 import IconCapChevronDown from "~icons/cap/chevron-down";
 import IconCapCircleCheck from "~icons/cap/circle-check";
@@ -40,9 +40,7 @@ import {
 const selectTriggerClass =
 	"flex flex-row gap-1.5 items-center px-2 h-7 max-w-full rounded-[7px] text-[13px] transition-colors outline-hidden bg-ed-ctl text-ed-text-1 hover:bg-ed-ctl-hover focus-visible:ring-1 focus-visible:ring-ed-accent";
 
-export function KeyboardTab(props: {
-	brandColorSwatches: OrganizationBrandColorSwatch[];
-}) {
+export function KeyboardTab(props: { brandColorSwatches: BrandColorSwatch[] }) {
 	const {
 		project,
 		setProject,

@@ -19,7 +19,6 @@ use tracing::{error, info, warn};
 use crate::ClipboardContext;
 use crate::general_settings::PostStudioRecordingBehaviour;
 
-const WEBHOOK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 const COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
 
 #[derive(Debug, PartialEq, Eq)]
@@ -74,11 +73,9 @@ impl AutomationHost for DesktopAutomationHost {
             Capability::CopyToClipboard,
             Capability::SaveToLocation,
             Capability::Export,
-            Capability::Upload,
             Capability::RevealInFileManager,
             Capability::OpenFile,
             Capability::RunCommand,
-            Capability::Webhook,
             Capability::Notify,
             Capability::OpenEditor,
             Capability::ApplyPreset,
@@ -212,85 +209,6 @@ impl AutomationHost for DesktopAutomationHost {
         Ok(())
     }
 
-    async fn upload(
-        &self,
-        ctx: &TriggerContext,
-        organization_id: Option<&str>,
-        copy_link: bool,
-        open_in_browser: bool,
-    ) -> Result<(), String> {
-        let link = if let Some(image_path) = ctx.image_path.as_ref() {
-            info!(path = %image_path.display(), "Automation: uploading screenshot");
-            let meta = ctx
-                .project_path
-                .as_ref()
-                .or(Some(image_path))
-                .and_then(|path| crate::load_screenshot_project_meta(path).ok());
-            let existing_video_id = meta
-                .as_ref()
-                .and_then(|(_, meta)| meta.sharing.as_ref().map(|sharing| sharing.id.clone()));
-            let uploaded = crate::upload::upload_screenshot_file(
-                &self.app,
-                image_path.clone(),
-                existing_video_id,
-                organization_id.map(str::to_string),
-            )
-            .await
-            .map_err(|e| format!("Upload failed: {e}"))?;
-
-            if let Some((project_path, meta)) = meta {
-                let _ = crate::save_screenshot_sharing(&project_path, meta, &uploaded, None);
-            }
-
-            uploaded.link
-        } else if let Some(existing) = ctx.share_link.as_ref() {
-            info!(link = %existing, "Automation: recording already uploaded, reusing existing link");
-            existing.clone()
-        } else if let Some(project_path) = ctx.project_path.as_ref() {
-            info!(path = %project_path.display(), "Automation: uploading recording");
-            let channel = tauri::ipc::Channel::new(|_| Ok(()));
-            let result = crate::upload_exported_video(
-                self.app.clone(),
-                project_path.clone(),
-                crate::UploadMode::Initial {
-                    pre_created_video: None,
-                },
-                channel,
-                organization_id.map(|s| s.to_string()),
-            )
-            .await?;
-
-            match result {
-                crate::UploadResult::Success(link) => link,
-                crate::UploadResult::NotAuthenticated => {
-                    return Err("Not authenticated for upload".to_string());
-                }
-                crate::UploadResult::UpgradeRequired => {
-                    return Err("Upgrade required for upload".to_string());
-                }
-                crate::UploadResult::PlanCheckFailed => {
-                    return Err("Plan check failed for upload".to_string());
-                }
-            }
-        } else {
-            return Err("No image or project path available for upload".to_string());
-        };
-
-        if copy_link {
-            self.clipboard
-                .write()
-                .await
-                .set_text(link.clone())
-                .map_err(|e| format!("Failed to copy link: {e}"))?;
-        }
-
-        if open_in_browser {
-            let _ = crate::open_external_link(self.app.clone(), link.clone());
-        }
-
-        Ok(())
-    }
-
     async fn reveal_in_file_manager(&self, ctx: &TriggerContext) -> Result<(), String> {
         let path = ctx
             .image_path
@@ -368,9 +286,6 @@ impl AutomationHost for DesktopAutomationHost {
         if let Some(ref p) = ctx.output_path {
             cmd.env("CAP_OUTPUT_PATH", p);
         }
-        if let Some(ref l) = ctx.share_link {
-            cmd.env("CAP_SHARE_LINK", l);
-        }
 
         // Kill the child if the timeout drops the future, so a hung command can't outlive the run.
         cmd.kill_on_drop(true);
@@ -382,53 +297,6 @@ impl AutomationHost for DesktopAutomationHost {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Command exited with {}: {}", output.status, stderr));
-        }
-
-        Ok(())
-    }
-
-    async fn webhook(
-        &self,
-        ctx: &TriggerContext,
-        url: &str,
-        method: &str,
-        headers: &HashMap<String, String>,
-        body_template: Option<&str>,
-    ) -> Result<(), String> {
-        info!(url, method, "Automation: sending webhook");
-
-        let client = reqwest::Client::builder()
-            .timeout(WEBHOOK_TIMEOUT)
-            .build()
-            .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
-        let method = method
-            .parse::<reqwest::Method>()
-            .map_err(|e| format!("Invalid HTTP method: {e}"))?;
-
-        let body = if let Some(tmpl) = body_template {
-            apply_body_template(tmpl, ctx)
-        } else {
-            serde_json::to_string(&serde_json::json!({
-                "project_path": ctx.project_path,
-                "image_path": ctx.image_path,
-                "output_path": ctx.output_path,
-                "share_link": ctx.share_link,
-            }))
-            .map_err(|e| format!("Failed to serialize webhook body: {e}"))?
-        };
-
-        let mut req = client.request(method, url).body(body);
-        for (k, v) in headers {
-            req = req.header(k, v);
-        }
-
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| format!("Webhook request failed: {e}"))?;
-
-        if !resp.status().is_success() {
-            return Err(format!("Webhook returned status {}", resp.status()));
         }
 
         Ok(())
@@ -653,9 +521,6 @@ fn apply_body_template(template: &str, ctx: &TriggerContext) -> String {
     if let Some(ref p) = ctx.output_path {
         result = result.replace("{output_path}", &p.to_string_lossy());
     }
-    if let Some(ref l) = ctx.share_link {
-        result = result.replace("{share_link}", l);
-    }
     result
 }
 
@@ -795,44 +660,6 @@ pub fn run_studio_recording_automations(app: AppHandle, project_path: PathBuf, d
     });
 }
 
-pub fn run_instant_recording_automations(
-    app: AppHandle,
-    project_path: PathBuf,
-    share_link: Option<String>,
-    share_id: Option<String>,
-) {
-    tokio::spawn(async move {
-        let mut ctx = TriggerContext::new()
-            .with_project_path(project_path)
-            .with_recording_mode(AutomationRecordingMode::Instant);
-        if let Some(link) = share_link {
-            ctx = ctx.with_share_link(link);
-        }
-        if let Some(id) = share_id {
-            ctx = ctx.with_share_id(id);
-        }
-        run_trigger(&app, Trigger::InstantRecordingFinished, ctx).await;
-    });
-}
-
-pub fn run_upload_completed_automations(
-    app: AppHandle,
-    project_path: PathBuf,
-    share_link: Option<String>,
-    share_id: Option<String>,
-) {
-    tokio::spawn(async move {
-        let mut ctx = TriggerContext::new().with_project_path(project_path);
-        if let Some(link) = share_link {
-            ctx = ctx.with_share_link(link);
-        }
-        if let Some(id) = share_id {
-            ctx = ctx.with_share_id(id);
-        }
-        run_trigger(&app, Trigger::UploadCompleted, ctx).await;
-    });
-}
-
 pub fn run_video_imported_automations(app: AppHandle, project_path: PathBuf) {
     tokio::spawn(async move {
         let ctx = TriggerContext::new().with_project_path(project_path);
@@ -960,11 +787,9 @@ pub async fn list_automation_capabilities() -> Vec<String> {
         "CopyToClipboard".to_string(),
         "SaveToLocation".to_string(),
         "Export".to_string(),
-        "Upload".to_string(),
         "RevealInFileManager".to_string(),
         "OpenFile".to_string(),
         "RunCommand".to_string(),
-        "Webhook".to_string(),
         "RecognizeText".to_string(),
         "Notify".to_string(),
         "OpenEditor".to_string(),

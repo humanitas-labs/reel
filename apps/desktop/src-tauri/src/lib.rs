@@ -12,7 +12,6 @@ mod camera_legacy;
 mod camera_native;
 mod captions;
 mod clean_capture;
-mod cli;
 mod clip_thumbnails;
 mod crash_sentinel;
 mod deeplink_actions;
@@ -6757,9 +6756,6 @@ fn specta_builder() -> tauri_specta::Builder {
             diagnostics::run_diagnostic,
             diagnostics::upload_diagnostic_report,
             diagnostics::reveal_diagnostic_report,
-            cli::get_cli_install_status,
-            cli::install_cli,
-            cli::uninstall_cli,
             recording::start_recording,
             recording::stop_recording,
             recording::pause_recording,

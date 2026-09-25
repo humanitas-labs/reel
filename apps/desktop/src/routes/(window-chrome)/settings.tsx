@@ -212,11 +212,6 @@ export default function Settings(props: RouteSectionProps) {
 			icon: IconCapHotkeys,
 		},
 		{
-			href: "cli",
-			name: "CLI",
-			icon: IconLucideTerminal,
-		},
-		{
 			href: "recordings",
 			name: "Recordings",
 			icon: IconLucideSquarePlay,

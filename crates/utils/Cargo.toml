@@ -32,7 +32,6 @@ flume = "0.11.0"
 tracing.workspace = true
 directories = "5.0"
 aho-corasick.workspace = true
-workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [dev-dependencies]
 tracing-appender = "0.2.3"

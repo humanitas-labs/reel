@@ -90,7 +90,6 @@ cap-recording = { path = "../../../crates/recording" }
 cap-timestamp = { path = "../../../crates/timestamp" }
 cap-export = { path = "../../../crates/export" }
 cap-automation = { path = "../../../crates/automation" }
-cap-cli-install = { path = "../../../crates/cli-install", features = ["specta"] }
 cap-enc-ffmpeg = { path = "../../../crates/enc-ffmpeg" }
 cap-media-info = { path = "../../../crates/media-info" }
 scap-targets = { path = "../../../crates/scap-targets" }
@@ -123,7 +122,6 @@ opentelemetry = "0.31.0"
 opentelemetry-otlp = "0.31.0"                                                 #{ version = , features = ["http-proto", "reqwest-client"] }
 opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio", "trace"] }
 sysinfo = "0.35"
-workspace-hack = { version = "0.1", path = "../../../crates/workspace-hack" }
 aho-corasick.workspace = true
 
 

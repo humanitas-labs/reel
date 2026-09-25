@@ -25,12 +25,6 @@ fn main() {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    if let Err(error) = cap_cli_install::appimage::dispatch_cli() {
-        eprintln!("{error}");
-        std::process::exit(1);
-    }
-
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     if std::env::var_os("ORT_DYLIB_PATH").is_none()
         && let Some(path) = cap_camera_effects::onnx_runtime_library_path()

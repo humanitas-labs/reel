@@ -58,10 +58,9 @@ async function main() {
 		{
 			packageName: "cap",
 			sourceBinary: "cap",
-			destBinaries: ["cap-cli", "cap-exporter"],
+			destBinaries: ["cap-exporter"],
 			watchPaths: [
 				path.join(repoRoot, "apps", "cli"),
-				path.join(repoRoot, "crates", "cli-install"),
 				path.join(repoRoot, "crates", "editor"),
 				path.join(repoRoot, "crates", "enc-ffmpeg"),
 				path.join(repoRoot, "crates", "export"),

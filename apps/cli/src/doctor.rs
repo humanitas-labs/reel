@@ -14,7 +14,7 @@ const BINARY_SUFFIX: &str = ".exe";
 #[cfg(not(windows))]
 const BINARY_SUFFIX: &str = "";
 
-const BUNDLED_BINARIES: [&str; 3] = ["cap-cli", "cap-exporter", "cap-muxer"];
+const BUNDLED_BINARIES: [&str; 2] = ["cap-exporter", "cap-muxer"];
 
 #[derive(Serialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -216,7 +216,6 @@ pub enum CheckId {
     ScreenRecordingPermission,
     #[cfg(target_os = "macos")]
     ScreenCaptureKit,
-    CliInstall,
 }
 
 impl CheckId {
@@ -226,7 +225,6 @@ impl CheckId {
             Self::ScreenRecordingPermission => "screenRecordingPermission",
             #[cfg(target_os = "macos")]
             Self::ScreenCaptureKit => "screenCaptureKit",
-            Self::CliInstall => "cliInstall",
         }
     }
 }
@@ -424,37 +422,6 @@ async fn screen_capture_kit_check(permissions: &Permissions) -> Check {
     }
 }
 
-fn install_check(install: &Result<cap_cli_install::CliInstallStatus, String>) -> Check {
-    match install {
-        Ok(status) if status.installed && status.on_path => Check {
-            id: CheckId::CliInstall,
-            status: CheckStatus::Ok,
-            message: format!("`cap` is installed at {} and on PATH", status.shim_path),
-        },
-        Ok(status) if status.installed => Check {
-            id: CheckId::CliInstall,
-            status: CheckStatus::Warn,
-            message: format!(
-                "`cap` is installed at {} but its directory is not on PATH. Run: {}",
-                status.shim_path, status.shell_command
-            ),
-        },
-        Ok(status) => Check {
-            id: CheckId::CliInstall,
-            status: CheckStatus::Warn,
-            message: status
-                .conflict
-                .clone()
-                .unwrap_or_else(|| "`cap` shim is not installed".to_string()),
-        },
-        Err(e) => Check {
-            id: CheckId::CliInstall,
-            status: CheckStatus::Unknown,
-            message: format!("Could not determine install status: {e}"),
-        },
-    }
-}
-
 #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
 fn capture_ready(permissions: &Permissions, checks: &[Check]) -> bool {
     let permission_ready = match permissions.screen_recording {
@@ -493,8 +460,6 @@ pub struct Doctor {
     pub schema_version: u32,
     pub version: VersionInfo,
     pub permissions: Permissions,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub install: Option<cap_cli_install::CliInstallStatus>,
     pub checks: Vec<Check>,
     /// Automation rules shared with Cap Desktop that the CLI honors after capture/upload.
     pub automations: AutomationsInfo,
@@ -541,14 +506,10 @@ fn distribution_label(distribution: Distribution) -> &'static str {
 pub async fn run_doctor(format: OutputFormat) -> Result<(), String> {
     let version = VersionInfo::collect();
     let permissions = permissions();
-    let install = cap_cli_install::status();
-
     let mut checks = vec![ffmpeg_check(), permission_check(&permissions)];
 
     #[cfg(target_os = "macos")]
     checks.push(screen_capture_kit_check(&permissions).await);
-
-    checks.push(install_check(&install));
 
     let ok = !checks
         .iter()
@@ -561,7 +522,6 @@ pub async fn run_doctor(format: OutputFormat) -> Result<(), String> {
         schema_version: SCHEMA_VERSION,
         version,
         permissions,
-        install: install.ok(),
         checks,
         automations: AutomationsInfo {
             rule_count,

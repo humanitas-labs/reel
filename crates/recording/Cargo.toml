@@ -64,7 +64,6 @@ retry = "2.1.0"
 sysinfo = "0.35"
 parking_lot = "0.12"
 dhat = { version = "0.3", optional = true }
-workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true }

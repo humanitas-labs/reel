@@ -4,7 +4,6 @@ members = [
     "apps/cli",
     "apps/desktop/src-tauri",
     "crates/*",
-    "crates/workspace-hack",
 ]
 
 [workspace.dependencies]

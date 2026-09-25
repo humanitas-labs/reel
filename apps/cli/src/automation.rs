@@ -16,7 +16,6 @@ use serde_json::Value;
 
 const DESKTOP_BUNDLE_IDS: [&str; 2] = ["so.cap.desktop", "so.cap.desktop.dev"];
 
-const WEBHOOK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 const COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
 
 fn load_desktop_store_value() -> Option<Value> {
@@ -54,11 +53,9 @@ impl AutomationHost for CliAutomationHost {
         &[
             Capability::SaveToLocation,
             Capability::Export,
-            Capability::Upload,
             Capability::RevealInFileManager,
             Capability::OpenFile,
             Capability::RunCommand,
-            Capability::Webhook,
             Capability::ApplyPreset,
             Capability::DeleteLocalFiles,
         ]
@@ -174,41 +171,12 @@ impl AutomationHost for CliAutomationHost {
 
     async fn upload(
         &self,
-        ctx: &TriggerContext,
+        _ctx: &TriggerContext,
         _organization_id: Option<&str>,
         _copy_link: bool,
-        open_in_browser: bool,
+        _open_in_browser: bool,
     ) -> Result<(), String> {
-        if let Some(link) = ctx.share_link.as_deref() {
-            tracing::info!(link = %link, "automation: recording already uploaded, reusing link");
-            if open_in_browser {
-                open_path_or_url(link)?;
-            }
-            return Ok(());
-        }
-
-        let project_path = ctx
-            .project_path
-            .as_ref()
-            .ok_or("CLI upload supports recordings only (no project path available)")?;
-
-        let meta = cap_project::RecordingMeta::load_for_project(project_path)
-            .map_err(|e| format!("Failed to load project: {e}"))?;
-        let output = meta.output_path();
-        if !output.exists() {
-            return Err(format!(
-                "No exported video at {}; add an Export action before Upload",
-                output.display()
-            ));
-        }
-
-        let link =
-            crate::upload::upload_video_path(&output, Some(meta.pretty_name.clone())).await?;
-        tracing::info!(link = %link, "automation: upload complete");
-        if open_in_browser {
-            open_path_or_url(&link)?;
-        }
-        Ok(())
+        Err("Upload is not available from the CLI".to_string())
     }
 
     fn upload_is_verified(
@@ -291,43 +259,13 @@ impl AutomationHost for CliAutomationHost {
 
     async fn webhook(
         &self,
-        ctx: &TriggerContext,
-        url: &str,
-        method: &str,
-        headers: &HashMap<String, String>,
-        body_template: Option<&str>,
+        _ctx: &TriggerContext,
+        _url: &str,
+        _method: &str,
+        _headers: &HashMap<String, String>,
+        _body_template: Option<&str>,
     ) -> Result<(), String> {
-        let client = reqwest::Client::builder()
-            .timeout(WEBHOOK_TIMEOUT)
-            .build()
-            .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
-        let method = method
-            .parse::<reqwest::Method>()
-            .map_err(|e| format!("Invalid HTTP method: {e}"))?;
-        let body = if let Some(tmpl) = body_template {
-            apply_body_template(tmpl, ctx)
-        } else {
-            serde_json::to_string(&serde_json::json!({
-                "project_path": ctx.project_path,
-                "image_path": ctx.image_path,
-                "output_path": ctx.output_path,
-                "share_link": ctx.share_link,
-            }))
-            .map_err(|e| format!("Failed to serialize webhook body: {e}"))?
-        };
-
-        let mut req = client.request(method, url).body(body);
-        for (k, v) in headers {
-            req = req.header(k, v);
-        }
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| format!("Webhook request failed: {e}"))?;
-        if !resp.status().is_success() {
-            return Err(format!("Webhook returned status {}", resp.status()));
-        }
-        Ok(())
+        Err("Webhooks are not available from the CLI".to_string())
     }
 
     async fn recognize_text_to_clipboard(&self, _ctx: &TriggerContext) -> Result<(), String> {
@@ -431,23 +369,6 @@ fn apply_filename_template(template: &str, ctx: &TriggerContext) -> String {
     result
 }
 
-fn apply_body_template(template: &str, ctx: &TriggerContext) -> String {
-    let mut result = template.to_string();
-    if let Some(p) = &ctx.project_path {
-        result = result.replace("{project_path}", &p.to_string_lossy());
-    }
-    if let Some(p) = &ctx.image_path {
-        result = result.replace("{image_path}", &p.to_string_lossy());
-    }
-    if let Some(p) = &ctx.output_path {
-        result = result.replace("{output_path}", &p.to_string_lossy());
-    }
-    if let Some(l) = &ctx.share_link {
-        result = result.replace("{share_link}", l);
-    }
-    result
-}
-
 fn open_path_or_url(target: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let mut cmd = std::process::Command::new("open");
@@ -523,18 +444,6 @@ pub async fn run_recording_finished(project_path: &Path, mode: AutomationRecordi
     run_trigger(trigger, ctx).await;
 }
 
-pub async fn run_upload_completed(project_path: &Path, link: &str, id: &str) {
-    if load_store().is_none() {
-        return;
-    }
-
-    let ctx = TriggerContext::new()
-        .with_project_path(project_path.to_path_buf())
-        .with_share_link(link.to_string())
-        .with_share_id(id.to_string());
-    run_trigger(Trigger::UploadCompleted, ctx).await;
-}
-
 /// `cap automations list` — print the automation rules shared with Cap Desktop.
 pub fn list(format: crate::OutputFormat) -> Result<(), String> {
     let store = load_store().unwrap_or_default();
@@ -567,65 +476,6 @@ pub fn list(format: crate::OutputFormat) -> Result<(), String> {
                 }
             }
             Ok(())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cap_automation::{Action, AutomationRule, MatchMode};
-
-    #[tokio::test]
-    async fn cli_upload_cleanup_retains_media_without_a_verified_receipt() {
-        for trigger in [Trigger::UploadCompleted, Trigger::InstantRecordingFinished] {
-            let temp = tempfile::tempdir().unwrap();
-            let project_path = temp.path().join("owned.cap");
-            std::fs::create_dir(&project_path).unwrap();
-            let media = project_path.join("retained-media.mp4");
-            std::fs::write(&media, b"owned recording must survive").unwrap();
-            let mut actions = Vec::new();
-            if trigger == Trigger::InstantRecordingFinished {
-                actions.push(Action::Upload {
-                    organization_id: None,
-                    copy_link: false,
-                    open_in_browser: false,
-                });
-            }
-            actions.push(Action::DeleteLocalFiles);
-            let store = AutomationsStore {
-                version: 1,
-                rules: vec![AutomationRule {
-                    id: "owned-cleanup".to_string(),
-                    name: "Upload cleanup".to_string(),
-                    enabled: true,
-                    trigger,
-                    match_mode: MatchMode::All,
-                    conditions: vec![],
-                    actions,
-                }],
-            };
-            let ctx = TriggerContext::new()
-                .with_project_path(project_path)
-                .with_share_link("https://cap.test/s/owned".to_string())
-                .with_share_id("owned".to_string());
-            let results = cap_automation::run(&CliAutomationHost, &store, &trigger, &ctx).await;
-            let deletion = results[0].action_results.last().unwrap();
-            assert!(!deletion.success);
-            assert!(
-                deletion
-                    .error
-                    .as_deref()
-                    .unwrap()
-                    .contains("remote verification is unavailable")
-            );
-            assert_eq!(
-                std::fs::read(&media).unwrap(),
-                b"owned recording must survive"
-            );
-            if trigger == Trigger::InstantRecordingFinished {
-                assert!(results[0].action_results[0].success);
-            }
         }
     }
 }

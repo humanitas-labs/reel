@@ -125,6 +125,25 @@ Rework:
 - [ ] Copy existing recordings from the old app data dir into the new one and confirm they open in the editor.
 - [ ] Squash or keep the phase commits, tag `v1.0-local`.
 
+## Parallel execution (from the Phase 2 checkpoint)
+
+Commit `33947d0` ("wip: remove network, auth, telemetry and update code from the desktop crate") is the checkpoint: `apps/desktop/src-tauri` no longer references the deleted modules anywhere except `recording.rs` (43 errors, instant mode) and `automation.rs` (8 errors, upload and webhook actions). Every remaining unit below owns a disjoint file set, so they run as concurrent agents. Each agent reads `AGENTS.md`, edits only its files, runs its scoped checks, and does not commit. The `tauri.ts` bindings regenerate from the `export_bindings` test in `lib.rs`, so no app launch is needed.
+
+Wave 1 (concurrent):
+
+- **A. Recording.** `src/recording.rs`, `src/linux_instant_camera.rs`, `src/recording_settings.rs`, `crates/recording/**`, and the `VideoUploadInfo` / `UploadMode` remnants in `src/lib.rs`. Delete `RecordingMode::Instant` and `InProgressRecording::Instant`, then remove every branch the compiler flags; drop the health accumulator and telemetry emitters; delete the instant recording, upload preparation, upload resume and upload verification modules from the recording crate.
+- **B. Automation.** `crates/automation/**`, `src/automation.rs`, `apps/cli/src/automation.rs`. Remove the upload and webhook actions, the `{share_link}` template, the upload and instant triggers, and the organisation condition from the trait and both hosts.
+- **D. Windows, exit and config.** `src/windows.rs` (Upgrade window), `src/notifications.rs` (share and upload variants), `src/exit_shutdown.rs` (UploadActive, UpdateInstalling), desktop `Cargo.toml` dependency pruning, `tauri.conf.json` and `tauri.prod.conf.json` (CSP, updater artifacts, product name Reel, identifier com.andjones.reel, deep-link scheme reel), `capabilities/default.json`, `Entitlements.plist`.
+- **E. TypeScript strip (Phase 3).** Everything under `apps/desktop/src` except `utils/tauri.ts`, plus `apps/desktop/package.json`, `app.config.ts`, `vite-env.d.ts`. Biome on touched files only; the typecheck gate runs in wave 2 after bindings regenerate.
+- **F. Branding assets (Phase 4, non-string part).** `apps/desktop/src-tauri/icons/**`, `packages/ui-solid/icons/*.svg`, `Info.plist`, the `so.cap.desktop` identifiers in `src/main.rs`, `src/tray.rs`, `crates/recording/src/sources/screen_capture/mod.rs`, `crates/export/tests/export_benchmark.rs`, `src/stop_editor_benchmark.rs`; README rewrite, CONTRIBUTING removal, AGENTS.md trim.
+
+Wave 2 (after wave 1 lands and `cargo check -p cap-desktop -p cap` is clean):
+
+- **C. Project metadata.** `crates/project/src/meta.rs` sharing and upload types and their remaining callers in `src/lib.rs`, `src/screenshot_editor.rs`, `apps/cli/src/record.rs`.
+- **G. Rust gate.** `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, dead-code removal, `cargo test -p cap-desktop export_bindings` to regenerate `tauri.ts`.
+- **H. TypeScript gate and string rebrand.** `bun run typecheck`, fix fallout from the new bindings, then the user-visible "Cap" strings across the frontend and `entry-server.tsx`.
+- **I. Phase 5 verification** as written above.
+
 ## Open decisions
 
 1. Product name: provisionally Reel. Revisit before Phase 4.

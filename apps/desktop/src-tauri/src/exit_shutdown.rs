@@ -13,18 +13,18 @@ impl ExitBlocked {
     pub(crate) fn message(self) -> &'static str {
         match self {
             Self::StateUnavailable => {
-                "Reel could not confirm that recording has finished. Wait for any recording to finish, then try again."
+                "Tape could not confirm that recording has finished. Wait for any recording to finish, then try again."
             }
             Self::RecordingActive => {
-                "Finish or cancel your recording before quitting or restarting Reel. If you already pressed Stop, wait for it to finish."
+                "Finish or cancel your recording before quitting or restarting Tape. If you already pressed Stop, wait for it to finish."
             }
             Self::FinalizationActive => {
-                "Reel is still saving your recording. Wait for it to finish before quitting or restarting."
+                "Tape is still saving your recording. Wait for it to finish before quitting or restarting."
             }
             Self::ExportActive => {
-                "Wait for your export to finish before quitting or restarting Reel."
+                "Wait for your export to finish before quitting or restarting Tape."
             }
-            Self::AlreadyExiting => "Reel is already shutting down.",
+            Self::AlreadyExiting => "Tape is already shutting down.",
         }
     }
 }
@@ -43,7 +43,7 @@ pub(crate) fn with_idle_recording_state<T, R>(
 
 pub(crate) fn recording_start_allowed(is_exiting: bool) -> Result<(), &'static str> {
     if is_exiting {
-        Err("Reel is shutting down. Recording has not started.")
+        Err("Tape is shutting down. Recording has not started.")
     } else {
         Ok(())
     }

@@ -319,7 +319,7 @@ fn first_linux_picker_target<T, R>(
     candidates.into_iter().find_map(|candidate| {
         if !candidate.is_viewable
             || (candidate.owner_pid == Some(own_pid)
-                && candidate.title.as_deref() == Some("Reel Target Select"))
+                && candidate.title.as_deref() == Some("Tape Target Select"))
         {
             return None;
         }
@@ -967,11 +967,11 @@ mod linux_picker_tests {
         let exclusion = WindowExclusion {
             bundle_identifier: None,
             owner_name: Some("Cap".into()),
-            window_title: Some("Reel Camera".into()),
+            window_title: Some("Tape Camera".into()),
         };
         let candidates = [
-            candidate("Reel Target Select", Some(42), true),
-            candidate("Reel Camera", Some(42), true),
+            candidate("Tape Target Select", Some(42), true),
+            candidate("Tape Camera", Some(42), true),
             candidate("Moving fixture", Some(100), true),
             candidate("Lower window", Some(101), true),
         ];
@@ -983,20 +983,20 @@ mod linux_picker_tests {
         });
 
         assert_eq!(selected, Some("Moving fixture"));
-        assert_eq!(described, ["Reel Camera", "Moving fixture"]);
+        assert_eq!(described, ["Tape Camera", "Moving fixture"]);
     }
 
     #[test]
     fn skips_own_picker_when_no_windows_are_configured_for_exclusion() {
         let candidates = [
-            candidate("Reel Target Select", Some(42), true),
-            candidate("Reel Camera", Some(42), true),
+            candidate("Tape Target Select", Some(42), true),
+            candidate("Tape Camera", Some(42), true),
             candidate("Moving fixture", Some(100), true),
         ];
 
         assert_eq!(
             first_linux_picker_target(candidates, 42, Some),
-            Some("Reel Camera")
+            Some("Tape Camera")
         );
     }
 
@@ -1004,13 +1004,13 @@ mod linux_picker_tests {
     fn does_not_exclude_foreign_or_unknown_owner_by_picker_title() {
         for owner_pid in [Some(100), None] {
             let candidates = [
-                candidate("Reel Target Select", owner_pid, true),
+                candidate("Tape Target Select", owner_pid, true),
                 candidate("Moving fixture", Some(101), true),
             ];
 
             assert_eq!(
                 first_linux_picker_target(candidates, 42, Some),
-                Some("Reel Target Select")
+                Some("Tape Target Select")
             );
         }
     }
@@ -1037,7 +1037,7 @@ mod linux_picker_tests {
     #[test]
     fn returns_no_target_when_every_candidate_is_ineligible() {
         let candidates = [
-            candidate("Reel Target Select", Some(42), true),
+            candidate("Tape Target Select", Some(42), true),
             candidate("Hidden window", Some(100), false),
             candidate("Excluded window", Some(101), true),
         ];

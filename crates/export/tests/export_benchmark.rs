@@ -96,7 +96,7 @@ pub fn get_recordings_dir() -> Option<PathBuf> {
 
     if let Some(base_dirs) = BaseDirs::new() {
         let data_dir = base_dirs.data_dir();
-        for identifier in ["com.andjones.reel.dev", "com.andjones.reel"] {
+        for identifier in ["com.andjones.tape.dev", "com.andjones.tape"] {
             candidates.push(data_dir.join(identifier).join("recordings"));
         }
     }

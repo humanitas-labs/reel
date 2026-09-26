@@ -10,14 +10,14 @@ import {
 import IconLucideAlertCircle from "~icons/lucide/alert-circle";
 
 const funMessages = [
-	"Reel-ing in the frames...",
-	"Spooling up the Reel...",
-	"Reel-y close now...",
-	"Threading the Reel...",
-	"Winding the Reel just right...",
-	"Reel-igning the pixels...",
-	"Rolling the Reel forward...",
-	"Reel-axing while the import finishes...",
+	"Threading the tape...",
+	"Winding the tape just right...",
+	"Rolling tape...",
+	"Pressing play on the import...",
+	"Rewinding to the first frame...",
+	"Splicing the frames together...",
+	"Almost at the end of the tape...",
+	"Labelling the cassette...",
 ];
 
 export type ImportProgressProps = {

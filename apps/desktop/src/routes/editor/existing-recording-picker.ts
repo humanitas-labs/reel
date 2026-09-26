@@ -15,7 +15,7 @@ export const getExistingRecordingPickerOptions = (
 
 	return {
 		defaultPath,
-		filters: [{ name: "Reel Recording", extensions: ["cap"] }],
+		filters: [{ name: "Tape Recording", extensions: ["cap"] }],
 		multiple: false,
 	};
 };

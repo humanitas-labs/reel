@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getExistingRecordingPickerOptions } from "./existing-recording-picker";
 
 describe("existing recording picker", () => {
-	it("selects Reel project directories on Windows", () => {
+	it("selects Tape project directories on Windows", () => {
 		expect(
 			getExistingRecordingPickerOptions("windows", "C:\\Cap\\recordings"),
 		).toEqual({
@@ -20,7 +20,7 @@ describe("existing recording picker", () => {
 				getExistingRecordingPickerOptions(platform, "/Cap/recordings"),
 			).toEqual({
 				defaultPath: "/Cap/recordings",
-				filters: [{ name: "Reel Recording", extensions: ["cap"] }],
+				filters: [{ name: "Tape Recording", extensions: ["cap"] }],
 				multiple: false,
 			});
 		},

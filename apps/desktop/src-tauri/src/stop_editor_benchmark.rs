@@ -162,7 +162,7 @@ fn admit_identifier(requested: bool, identifier: &str) -> Result<bool, String> {
         return Ok(false);
     }
     if identifier
-        .strip_prefix("com.andjones.reel.stop-editor-benchmark.")
+        .strip_prefix("com.andjones.tape.stop-editor-benchmark.")
         .is_some_and(|suffix| !suffix.is_empty())
     {
         Ok(true)
@@ -361,7 +361,7 @@ fn arm_frame_capture(app: &tauri::AppHandle, project: Option<&Path>) -> Result<(
     if !app
         .config()
         .identifier
-        .starts_with("com.andjones.reel.stop-editor-benchmark.")
+        .starts_with("com.andjones.tape.stop-editor-benchmark.")
     {
         return Err("Frame capture requires a private benchmark app identifier".into());
     }
@@ -723,15 +723,15 @@ mod invocation_tests {
     #[test]
     fn app_admission_rejects_normal_and_empty_private_identifiers() {
         for identifier in [
-            "com.andjones.reel",
-            "com.andjones.reel.dev",
-            "com.andjones.reel.stop-editor-benchmark.",
-            "other.com.andjones.reel.stop-editor-benchmark.test",
+            "com.andjones.tape",
+            "com.andjones.tape.dev",
+            "com.andjones.tape.stop-editor-benchmark.",
+            "other.com.andjones.tape.stop-editor-benchmark.test",
         ] {
             assert!(!admit_identifier(false, identifier).unwrap());
             assert!(admit_identifier(true, identifier).is_err());
         }
-        let private = "com.andjones.reel.stop-editor-benchmark.test";
+        let private = "com.andjones.tape.stop-editor-benchmark.test";
         assert!(!admit_identifier(false, private).unwrap());
         assert!(admit_identifier(true, private).unwrap());
     }

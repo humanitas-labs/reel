@@ -683,7 +683,7 @@ mod tests {
                     style,
                     theme,
                     "example.com",
-                    "Reel Recording",
+                    "Tape Recording",
                     w,
                     h,
                     content_h,

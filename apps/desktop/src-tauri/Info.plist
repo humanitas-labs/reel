@@ -12,7 +12,7 @@
 			<key>CFBundleTypeIconFile</key>
 			<string>icon.icns</string>
 			<key>CFBundleTypeName</key>
-			<string>Reel Recording</string>
+			<string>Tape Recording</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -22,11 +22,11 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Reel uses your camera to record you in your recordings</string>
+	<string>Tape uses your camera to record you in your recordings</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Reel uses your microphone to record your voice in your recordings</string>
+	<string>Tape uses your microphone to record your voice in your recordings</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Reel captures your screen to make screen recordings</string>
+	<string>Tape captures your screen to make screen recordings</string>
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
 </dict>

@@ -3458,7 +3458,7 @@ fn show_exit_blocked(app: &AppHandle, reason: ExitBlocked) {
     );
     app.dialog()
         .message(reason.message())
-        .title("Reel is still busy")
+        .title("Tape is still busy")
         .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
         .show(|_| {});
 }
@@ -3561,7 +3561,7 @@ fn restart_app(app: AppHandle) -> Result<(), String> {
             app.request_restart();
             Ok(())
         }
-        Ok(false) => Err("Reel is already shutting down.".into()),
+        Ok(false) => Err("Tape is already shutting down.".into()),
         Err(reason) => Err(reason.message().into()),
     }
 }
@@ -7126,11 +7126,11 @@ impl Drop for StartupOpenGuard {
 fn queue_macos_startup_urls(app: &AppHandle, urls: Vec<tauri::Url>) -> Result<(), String> {
     let gate = app
         .try_state::<StartupOpenGate>()
-        .ok_or_else(|| "Reel startup is not ready to receive projects".to_string())?;
+        .ok_or_else(|| "Tape startup is not ready to receive projects".to_string())?;
     let dispatch = gate
         .0
         .lock()
-        .map_err(|_| "Reel startup file-open state is unavailable".to_string())?
+        .map_err(|_| "Tape startup file-open state is unavailable".to_string())?
         .request(urls)?;
     if let Some(dispatch) = dispatch {
         dispatch_macos_startup_urls(app, dispatch);
@@ -7953,12 +7953,12 @@ fn open_project_from_path(path: &Path, app: AppHandle) -> Result<(), String> {
     {
         let gate = app
             .try_state::<StartupOpenGate>()
-            .ok_or_else(|| "Reel startup is not ready to receive projects".to_string())?;
+            .ok_or_else(|| "Tape startup is not ready to receive projects".to_string())?;
         let ready = {
             let queue = gate
                 .0
                 .lock()
-                .map_err(|_| "Reel startup file-open state is unavailable".to_string())?;
+                .map_err(|_| "Tape startup file-open state is unavailable".to_string())?;
             !queue.cancelled && queue.ready
         };
         if !ready {

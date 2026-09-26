@@ -217,7 +217,7 @@ export function EditorErrorScreen(props: {
 								<p class="text-xs text-gray-11">
 									{storageShortage()
 										? "Free up space on the recording drive, then click Recover Recording. Your recording files have been kept."
-										: "Reel can attempt to recover your recording automatically. This will reconstruct the recording from available segment data."}
+										: "Tape can attempt to recover your recording automatically. This will reconstruct the recording from available segment data."}
 								</p>
 							</div>
 

@@ -1,10 +1,10 @@
-<p align="center"><img src="apps/desktop/src-tauri/icons/source-logo.png" width="150" alt="Reel"></p>
+<p align="center"><img src="docs/tape.png" width="360" alt="Tape"></p>
 
-# Reel
+# Tape
 
-Reel is a private, offline-only macOS screen recorder for a single user. It records the screen, a window or an area with optional camera and microphone, takes screenshots, and opens every recording in a local editor for trimming, captions and export. Nothing leaves the machine: there are no accounts, uploads, share links, update checks, telemetry or crash reporting.
+Tape is a private, offline-only macOS screen recorder for a single user. It records the screen, a window or an area with optional camera and microphone, takes screenshots, and opens every recording in a local editor for trimming, captions and export. Nothing leaves the machine: there are no accounts, uploads, share links, update checks, telemetry or crash reporting.
 
-Reel is a modified version of [Cap](https://github.com/CapSoftware/Cap) by Cap Software, Inc., forked from upstream commit `40f44a803` in September 2026 and distributed under the same licence terms (AGPLv3, with the `cap-camera*` and `scap-*` crates under MIT; see `LICENSE`). The web app, cloud features, instant mode and every other server-backed code path have been removed rather than disabled. Reel is not affiliated with or endorsed by Cap Software.
+Tape is a modified version of [Cap](https://github.com/CapSoftware/Cap) by Cap Software, Inc., forked from upstream commit `40f44a803` in September 2026 and distributed under the same licence terms (AGPLv3, with the `cap-camera*` and `scap-*` crates under MIT; see `LICENSE`). The web app, cloud features, instant mode and every other server-backed code path have been removed rather than disabled. Tape is not affiliated with or endorsed by Cap Software.
 
 ## Build
 

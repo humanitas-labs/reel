@@ -20,7 +20,7 @@ export function getTeleprompterWindowOptions(
 
 	return {
 		url: "/teleprompter",
-		title: "Reel Teleprompter",
+		title: "Tape Teleprompter",
 		width: 560,
 		height: 320,
 		minWidth: 420,

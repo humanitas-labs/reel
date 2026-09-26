@@ -103,18 +103,18 @@ impl MainWindowRecordingStartBehaviour {
     }
 }
 
-// NOTE: Do not add "Reel Target Select" here — on Windows, WDA_EXCLUDEFROMCAPTURE applied to that
+// NOTE: Do not add "Tape Target Select" here — on Windows, WDA_EXCLUDEFROMCAPTURE applied to that
 // hidden window causes it to reappear as a ghost overlay after recording ends.
 const DEFAULT_EXCLUDED_WINDOW_TITLES: &[&str] = &[
-    "Reel",
-    "Reel Settings",
-    "Reel Recording Controls",
-    "Reel Camera",
-    "Reel Window Reelture Occluder",
-    "Reel Reelture Area",
-    "Reel Mode Selection",
-    "Reel Recordings Overlay",
-    "Reel Teleprompter",
+    "Tape",
+    "Tape Settings",
+    "Tape Recording Controls",
+    "Tape Camera",
+    "Tape Window Capture Occluder",
+    "Tape Capture Area",
+    "Tape Mode Selection",
+    "Tape Recordings Overlay",
+    "Tape Teleprompter",
 ];
 
 pub fn default_excluded_windows() -> Vec<WindowExclusion> {
@@ -265,7 +265,7 @@ fn default_crash_recovery_recording() -> bool {
 
 fn default_transcription_hints() -> Vec<String> {
     vec![
-        "Reel".to_string(),
+        "Tape".to_string(),
         "TypeScript".to_string(),
         "My Brand Name".to_string(),
         "mywebsite.com".to_string(),
@@ -900,7 +900,7 @@ mod tests {
     #[test]
     fn appends_missing_default_excluded_windows() {
         let mut excluded_windows = vec![
-            title_exclusion("Reel"),
+            title_exclusion("Tape"),
             WindowExclusion {
                 bundle_identifier: None,
                 owner_name: Some("Preview".to_string()),

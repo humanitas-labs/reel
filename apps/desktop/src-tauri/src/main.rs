@@ -41,12 +41,12 @@ fn main() {
         let path = dirs::home_dir()
             .unwrap()
             .join("Library/Logs")
-            .join("com.andjones.reel");
+            .join("com.andjones.tape");
 
         #[cfg(not(target_os = "macos"))]
         let path = dirs::data_local_dir()
             .unwrap()
-            .join("com.andjones.reel")
+            .join("com.andjones.tape")
             .join("logs");
 
         #[cfg(debug_assertions)]

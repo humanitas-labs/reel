@@ -182,7 +182,7 @@ export function defaultActionForType(type: ActionType): Action {
 		case "recognizeTextToClipboard":
 			return { type };
 		case "notify":
-			return { type, titleTemplate: "Reel", bodyTemplate: "" };
+			return { type, titleTemplate: "Tape", bodyTemplate: "" };
 		case "openEditor":
 			return { type };
 		case "skipEditor":

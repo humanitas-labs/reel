@@ -101,7 +101,7 @@ function Inner(props: { initialStore: HotkeysStore | null }) {
 			<SettingsPageContent>
 				<Section
 					title="Shortcuts"
-					description="Configure system-wide keyboard shortcuts to control Reel."
+					description="Configure system-wide keyboard shortcuts to control Tape."
 				>
 					<SectionCard class="flex flex-col gap-3 p-4">
 						<Index each={actions()}>

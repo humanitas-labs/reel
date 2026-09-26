@@ -1,8 +1,8 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "Reel - Development",
-	"identifier": "com.andjones.reel.dev",
-	"mainBinaryName": "Reel - Development",
+	"productName": "Tape - Development",
+	"identifier": "com.andjones.tape.dev",
+	"mainBinaryName": "Tape - Development",
 	"build": {
 		"beforeDevCommand": "bun run localdev",
 		"devUrl": "http://localhost:3002",
@@ -35,7 +35,7 @@
 	"plugins": {
 		"deep-link": {
 			"desktop": {
-				"schemes": ["reel"]
+				"schemes": ["tape"]
 			}
 		}
 	},
@@ -79,7 +79,7 @@
 		"fileAssociations": [
 			{
 				"ext": ["cap"],
-				"name": "Reel Project",
+				"name": "Tape Project",
 				"mimeType": "application/x-cap-project",
 				"role": "Editor"
 			}

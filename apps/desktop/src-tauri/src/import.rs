@@ -1886,7 +1886,7 @@ pub async fn add_existing_recording_to_editor(
         crate::wait_for_recording_ready(&app, &source_path).await?;
         append_cap_project_to_editor_project(target_project_path, source_path).await?
     } else {
-        return Err("Select an MP4 file or a Reel project folder".to_string());
+        return Err("Select an MP4 file or a Tape project folder".to_string());
     };
     let imported_count =
         u32::try_from(imported_count).map_err(|_| "Too many recordings imported".to_string())?;

@@ -7,5 +7,5 @@
 <circle cx="27.7" cy="56.94" r="4.38" fill="#171B2E"/>
 <circle cx="20.09" cy="33.53" r="4.38" fill="#171B2E"/>
 <circle cx="40" cy="40" r="12.81" fill="#171B2E"/>
-<path d="M36.09 48.59V31.41H41.41A4.53 4.53 0 0 1 41.41 40.47H36.09M41.41 40.47L45.94 48.59" stroke="#FF7A59" stroke-width="3.28" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M33 32H47M40 32V48.5" stroke="#FF7A59" stroke-width="3.28" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

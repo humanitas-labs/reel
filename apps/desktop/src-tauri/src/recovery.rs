@@ -73,7 +73,7 @@ fn recovery_error_message(path: &Path, error: RecoveryError) -> String {
 
 fn parse_recording_date(pretty_name: &str) -> Option<NaiveDate> {
     let date_part = pretty_name
-        .strip_prefix("Reel ")
+        .strip_prefix("Tape ")
         .or_else(|| pretty_name.strip_prefix("Cap "))?;
     let date_str = date_part.split(" at ").next()?;
     NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()

@@ -118,8 +118,8 @@ TYPICAL AGENT WORKFLOW
 #[command(
     name = "cap",
     version,
-    about = "Reel screen recording from the command line",
-    long_about = "Reel screen recording from the command line.\n\nDesigned to be driven by automation and AI agents: add --json to any command for \
+    about = "Tape screen recording from the command line",
+    long_about = "Tape screen recording from the command line.\n\nDesigned to be driven by automation and AI agents: add --json to any command for \
 machine-readable output. See the sections below for the JSON convention, environment variables, and \
 the canonical record -> export workflow.",
     after_help = AGENT_HELP,
@@ -564,7 +564,7 @@ fn print_welcome(json: bool) -> Result<(), String> {
     if json {
         return write_json(&serde_json::json!({
             "name": "cap",
-            "about": "Reel screen recording from the command line",
+            "about": "Tape screen recording from the command line",
             "commands": ["record", "screenshot", "export", "targets", "doctor", "guide"],
         }));
     }

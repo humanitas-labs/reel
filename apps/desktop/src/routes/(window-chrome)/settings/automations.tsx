@@ -199,7 +199,7 @@ const TEMPLATES: Template[] = [
 		id: "ocr-screenshot",
 		name: "Pull the text out of screenshots",
 		description:
-			"Reel reads the text in your screenshot and copies it for you.",
+			"Tape reads the text in your screenshot and copies it for you.",
 		icon: IconLucideScanText,
 		build: () =>
 			buildRule({
@@ -451,7 +451,7 @@ export default function AutomationsSettings() {
 			<SettingsPageContent>
 				<Section
 					title="Automations"
-					description="Run actions automatically when something happens in Reel. Rules are shared with the Reel CLI."
+					description="Run actions automatically when something happens in Tape. Rules are shared with the Tape CLI."
 				>
 					<Suspense
 						fallback={<div class="h-24 rounded-xl bg-gray-3 animate-pulse" />}

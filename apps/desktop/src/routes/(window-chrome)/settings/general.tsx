@@ -167,7 +167,7 @@ function AppearanceSection(props: {
 	return (
 		<Section
 			title="Appearance"
-			description="Match Reel to your system theme or pick a fixed look."
+			description="Match Tape to your system theme or pick a fixed look."
 		>
 			<SectionCard padded>
 				<div
@@ -475,18 +475,18 @@ function Inner(props: {
 				{ostype === "macos" && (
 					<Section
 						title="App"
-						description="Choose how Reel shows up on your system."
+						description="Choose how Tape shows up on your system."
 					>
 						<SectionRows>
 							<ToggleSettingItem
 								label="Always show dock icon"
-								description="Keep Reel in the dock even when no windows are open."
+								description="Keep Tape in the dock even when no windows are open."
 								value={!settings.hideDockIcon}
 								onChange={(v) => handleChange("hideDockIcon", !v)}
 							/>
 							<ToggleSettingItem
 								label="System notifications"
-								description="Show notifications for clipboard copies, saved files, and more. You may need to allow Reel in your system's notification settings."
+								description="Show notifications for clipboard copies, saved files, and more. You may need to allow Tape in your system's notification settings."
 								value={!!settings.enableNotifications}
 								onChange={async (value) => {
 									if (value) {
@@ -754,7 +754,7 @@ function StorageSection(props: {
 	const isCustom = () => props.recordingsPath !== null;
 
 	return (
-		<Section title="Storage" description="Where Reel saves your recordings.">
+		<Section title="Storage" description="Where Tape saves your recordings.">
 			<SectionCard padded>
 				<div class="flex flex-col gap-3">
 					<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-3 border border-gray-4 min-w-0">
@@ -1046,7 +1046,7 @@ function ExcludedWindowsCard(props: {
 			title="Excluded windows"
 			description={
 				props.isWindows
-					? "Hide windows from recordings. On Windows, only Reel-related windows can be excluded."
+					? "Hide windows from recordings. On Windows, only Tape-related windows can be excluded."
 					: "Hide windows from recordings."
 			}
 			right={
@@ -1079,7 +1079,7 @@ function ExcludedWindowsCard(props: {
 							<IconLucideAlertTriangle class="mt-0.5 size-4 shrink-0 text-amber-11" />
 							<div class="min-w-0 flex-1 space-y-1">
 								<p class="text-xs font-medium text-amber-11">
-									Recommended Reel windows are not excluded
+									Recommended Tape windows are not excluded
 								</p>
 								<p class="text-[10px] leading-snug text-amber-11">
 									Camera, settings, or recording windows can appear as black

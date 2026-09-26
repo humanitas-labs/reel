@@ -1597,7 +1597,7 @@ fn hide_windows(app: &AppHandle) -> Result<(), String> {
             native_id(&window)?;
             set_native_visibility(&window, false)?;
             if window.is_visible().map_err(|e| e.to_string())? {
-                return Err("Reel could not hide its recording windows safely".into());
+                return Err("Tape could not hide its recording windows safely".into());
             }
         }
     }
@@ -1621,7 +1621,7 @@ pub async fn hide(app: &AppHandle, generation: u32) -> Result<(), String> {
     tokio::time::timeout(Duration::from_secs(2), rx)
         .await
         .map_err(|_| "Timed out hiding Cap windows".to_string())?
-        .map_err(|_| "Reel window hide task was cancelled".to_string())??;
+        .map_err(|_| "Tape window hide task was cancelled".to_string())??;
     #[cfg(target_os = "linux")]
     if wayland_generation(app) == Some(generation) {
         wayland_fence(app, generation, true).await?;

@@ -431,7 +431,7 @@ fn build_tray_menu(app: &AppHandle, cache: &PreviousItemsCache) -> tauri::Result
                 &MenuItem::with_id(
                     app,
                     "version",
-                    format!("Reel v{}", env!("CARGO_PKG_VERSION")),
+                    format!("Tape v{}", env!("CARGO_PKG_VERSION")),
                     false,
                     None::<&str>,
                 )?,
@@ -547,7 +547,7 @@ fn build_tray_menu(app: &AppHandle, cache: &PreviousItemsCache) -> tauri::Result
     menu.append(&MenuItem::with_id(
         app,
         "version",
-        format!("Reel v{}", env!("CARGO_PKG_VERSION")),
+        format!("Tape v{}", env!("CARGO_PKG_VERSION")),
         false,
         None::<&str>,
     )?)?;

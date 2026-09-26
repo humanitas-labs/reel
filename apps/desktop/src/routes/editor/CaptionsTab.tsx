@@ -982,7 +982,7 @@ export function CaptionsTab(props: { brandColorSwatches: BrandColorSwatch[] }) {
 									</div>
 									<p class="text-[11px] leading-relaxed text-ed-text-3">
 										{downloadMessage() ||
-											"Keep Reel open while the model downloads. Editor reloads will reconnect automatically."}
+											"Keep Tape open while the model downloads. Editor reloads will reconnect automatically."}
 									</p>
 								</div>
 							</Show>
@@ -1156,7 +1156,7 @@ export function CaptionsTab(props: { brandColorSwatches: BrandColorSwatch[] }) {
 							/>
 						</Field>
 						<p class="text-[11px] leading-relaxed text-ed-text-3">
-							This is the first version of captions in Reel. Active word
+							This is the first version of captions in Tape. Active word
 							highlighting may be inaccurate in some situations. We're working
 							on a fix for this and it will be released in upcoming versions.
 						</p>

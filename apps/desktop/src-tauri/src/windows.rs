@@ -1283,19 +1283,19 @@ impl CapWindowId {
 
     pub fn title(&self) -> String {
         match self {
-            Self::Settings => "Reel Settings".to_string(),
-            Self::WindowCaptureOccluder { .. } => "Reel Window Reelture Occluder".to_string(),
-            Self::CaptureArea => "Reel Reelture Area".to_string(),
-            Self::RecordingControls => "Reel Recording Controls".to_string(),
-            Self::Editor { .. } => "Reel Editor".to_string(),
-            Self::ScreenshotEditor { .. } => "Reel Screenshot Editor".to_string(),
-            Self::ModeSelect => "Reel Mode Selection".to_string(),
-            Self::Onboarding => "Welcome to Reel".to_string(),
-            Self::Camera => "Reel Camera".to_string(),
-            Self::RecordingsOverlay => "Reel Recordings Overlay".to_string(),
-            Self::TargetSelectOverlay { .. } => "Reel Target Select".to_string(),
-            Self::Teleprompter => "Reel Teleprompter".to_string(),
-            _ => "Reel".to_string(),
+            Self::Settings => "Tape Settings".to_string(),
+            Self::WindowCaptureOccluder { .. } => "Tape Window Capture Occluder".to_string(),
+            Self::CaptureArea => "Tape Capture Area".to_string(),
+            Self::RecordingControls => "Tape Recording Controls".to_string(),
+            Self::Editor { .. } => "Tape Editor".to_string(),
+            Self::ScreenshotEditor { .. } => "Tape Screenshot Editor".to_string(),
+            Self::ModeSelect => "Tape Mode Selection".to_string(),
+            Self::Onboarding => "Welcome to Tape".to_string(),
+            Self::Camera => "Tape Camera".to_string(),
+            Self::RecordingsOverlay => "Tape Recordings Overlay".to_string(),
+            Self::TargetSelectOverlay { .. } => "Tape Target Select".to_string(),
+            Self::Teleprompter => "Tape Teleprompter".to_string(),
+            _ => "Tape".to_string(),
         }
     }
 

@@ -1,7 +1,7 @@
 Copyright (c) 2023-present Cap Software, Inc.
 Modifications copyright (c) 2026 Andrew Jones (Humanitas Labs).
 
-This is a modified version of Cap (https://github.com/CapSoftware/Cap). The modifications, made in September 2026, remove the hosted, account, upload, telemetry and update features and rename the application to Reel. The full list of changes is recorded in the git history of this repository. The modified work is distributed under the same terms as the original, set out below.
+This is a modified version of Cap (https://github.com/CapSoftware/Cap). The modifications, made in September 2026, remove the hosted, account, upload, telemetry and update features and rename the application to Tape. The full list of changes is recorded in the git history of this repository. The modified work is distributed under the same terms as the original, set out below.
 
 Portions of this software are licensed as follows:
 

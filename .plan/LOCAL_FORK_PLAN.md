@@ -2,7 +2,7 @@
 
 Goal: turn this checkout of Cap into a private, fully offline macOS screen recorder for one user. Studio recording, screenshots, the editor, captions and export stay. Accounts, sign-in, uploads, share links, instant mode, telemetry, crash reporting, update checks, licensing and every other code path that reaches a server are deleted, not disabled. The app is renamed and re-iconed. Nothing else in the monorepo (web app, mobile, CLI, extension, bots, infra) is kept.
 
-Names: `NEWNAME` = `Reel` (provisional), `NEWID` = `com.andjones.reel`. Deep-link scheme `reel://`.
+Names: `NEWNAME` = `Tape` (was Reel until the rename on 2026-09-25), `NEWID` = `com.andjones.tape`. Deep-link scheme `tape://`.
 
 Working rules for every phase: delete rather than stub wherever the compiler lets us. Keep the studio recording, screenshot, editor, rendering and export crates untouched unless a removal forces a change. Commit at the end of each phase so any phase can be bisected or reverted. Follow `AGENTS.md` for lint shape; comments stay out unless they capture a non-obvious decision.
 
@@ -110,7 +110,7 @@ Rework:
 - [x] Logo SVGs: replace `packages/ui-solid/icons/logo.svg`, `logo-full.svg`, `logo-full-dark.svg`; delete `instant.svg`. They are auto-imported as `IconCapLogo`, `IconCapLogoFull`, `IconCapLogoFullDark`; either keep those identifiers or rename the icon collection prefix in `packages/ui-solid/vite.js` and update the six call sites (`Loader.tsx`, `CapErrorBoundary.tsx`, `onboarding.tsx` l.1915, `new-main/index.tsx` l.3156-3157, plus any survivors).
 - [x] `entry-server.tsx` l.11 favicon path, `assets/dmg-background.png`, delete the NSIS and WiX bitmap assets.
 - [x] Rust hardcoded `so.cap.desktop`: `main.rs` log dir, `tray.rs` l.45-47, `crates/recording/src/sources/screen_capture/mod.rs`, `crates/export/tests/export_benchmark.rs`, `stop_editor_benchmark.rs`. Grep `so\.cap` and `cap\.so` across the tree to catch the rest.
-- [x] Deep-link scheme: `cap-desktop` in `tauri.conf.json` and `cap://` in `deeplink_actions.rs` become `reel://`. Update `Info.plist` document type "Cap Recording" and the usage strings.
+- [x] Deep-link scheme: `cap-desktop` in `tauri.conf.json` and `cap://` in `deeplink_actions.rs` become `tape://`. Update `Info.plist` document type "Cap Recording" and the usage strings.
 - [x] File association: keep the `.cap` project extension so existing recordings open unchanged. Rename only the display name in `fileAssociations`.
 - [x] User-visible strings: about 80 occurrences of "Cap" across the frontend, densest in `onboarding.tsx` (17), `settings/general.tsx` (12), `new-main/index.tsx` (9), `editor/ImportProgress.tsx` (4), `settings/experimental.tsx` (4), `settings/automations.tsx` (3), and "Update Cap" dialog titles that disappear with the updater. Grep `\bCap\b` in `.tsx` and `.ts`, review each hit by hand; do not blind-replace, since `cap` also appears in `.cap` and `CapWindowId`.
 - [x] Internal identifiers (`@cap/*` package names, `cap-*` crate names, `CapWindowId`, `cap.` localStorage prefix) stay as they are. They are invisible to the user and renaming them is churn with no payoff.
@@ -122,7 +122,7 @@ Rework:
 - [x] Dependency audit: `cargo tree -p cap-desktop | grep -iE "reqwest|hyper|sentry|opentelemetry|updater|oauth"` shows nothing beyond what the captions exception needs. `bun pm ls` shows no `@openpanel`, `@ts-rest`, `plugin-http`, `plugin-updater`.
 - [x] Build gates: `cargo clippy --workspace --all-targets -- -D warnings`, `bun run lint`, `bun run typecheck`, `bun run tauri:build` producing a signed-for-local-use `.app` and `.dmg`.
 - [x] Runtime audit (idle run: one localhost listener for the frame socket, zero external sockets; a full record/edit/export pass is still to be done by hand): launch the release build, record a studio clip with camera and mic, take a screenshot, edit, generate captions, export to file and clipboard. During the whole session watch `nettop -p <pid>` or Little Snitch. Expected outbound connections: zero, or one GitHub fetch on first caption use if that exception is kept.
-- [x] Copied the four recordings (455 MB) from `so.cap.desktop.dev` into `com.andjones.reel`; opening them in the editor is still to be confirmed by hand.
+- [x] Copied the four recordings (455 MB) from `so.cap.desktop.dev` into `com.andjones.tape`; opening them in the editor is still to be confirmed by hand.
 - [x] Phase commits kept; tagged `v1.0-local`.
 
 ## Parallel execution (from the Phase 2 checkpoint)
@@ -133,7 +133,7 @@ Wave 1 (concurrent), landed in commit fe1596e:
 
 - **A. Recording.** `src/recording.rs`, `src/linux_instant_camera.rs`, `src/recording_settings.rs`, `crates/recording/**`, and the `VideoUploadInfo` / `UploadMode` remnants in `src/lib.rs`. Delete `RecordingMode::Instant` and `InProgressRecording::Instant`, then remove every branch the compiler flags; drop the health accumulator and telemetry emitters; delete the instant recording, upload preparation, upload resume and upload verification modules from the recording crate.
 - **B. Automation.** `crates/automation/**`, `src/automation.rs`, `apps/cli/src/automation.rs`. Remove the upload and webhook actions, the `{share_link}` template, the upload and instant triggers, and the organisation condition from the trait and both hosts.
-- **D. Windows, exit and config.** `src/windows.rs` (Upgrade window), `src/notifications.rs` (share and upload variants), `src/exit_shutdown.rs` (UploadActive, UpdateInstalling), desktop `Cargo.toml` dependency pruning, `tauri.conf.json` and `tauri.prod.conf.json` (CSP, updater artifacts, product name Reel, identifier com.andjones.reel, deep-link scheme reel), `capabilities/default.json`, `Entitlements.plist`.
+- **D. Windows, exit and config.** `src/windows.rs` (Upgrade window), `src/notifications.rs` (share and upload variants), `src/exit_shutdown.rs` (UploadActive, UpdateInstalling), desktop `Cargo.toml` dependency pruning, `tauri.conf.json` and `tauri.prod.conf.json` (CSP, updater artifacts, product name Tape, identifier com.andjones.tape, deep-link scheme tape), `capabilities/default.json`, `Entitlements.plist`.
 - **E. TypeScript strip (Phase 3).** Everything under `apps/desktop/src` except `utils/tauri.ts`, plus `apps/desktop/package.json`, `app.config.ts`, `vite-env.d.ts`. Biome on touched files only; the typecheck gate runs in wave 2 after bindings regenerate.
 - **F. Branding assets (Phase 4, non-string part).** `apps/desktop/src-tauri/icons/**`, `packages/ui-solid/icons/*.svg`, `Info.plist`, the `so.cap.desktop` identifiers in `src/main.rs`, `src/tray.rs`, `crates/recording/src/sources/screen_capture/mod.rs`, `crates/export/tests/export_benchmark.rs`, `src/stop_editor_benchmark.rs`; README rewrite, CONTRIBUTING removal, AGENTS.md trim.
 
@@ -146,13 +146,15 @@ Wave 2 (landed in the commit after fe1596e; `cargo check -p cap-desktop -p cap -
 
 ## Status notes
 
+- Renamed from Reel to Tape after the first public push: bundle id `com.andjones.tape`, repo `humanitas-labs/tape`, icon letter T, all strings and the treemap updated. The `com.andjones.reel` data folder can be deleted.
+
 - Platform scope is macOS only. The Linux-only instant camera and clean-capture code paths reference deleted modules and will not compile on Linux; Windows and Linux bundle sections are removed from the Tauri config.
 - The `cloud-*.png` onboarding illustrations stay: they are the startup parallax art, not instant-mode art.
 - `mode-select.tsx` stays as a two-option window (studio, screenshot).
 
 ## Open decisions
 
-1. Product name: provisionally Reel. Revisit before Phase 4.
+1. Product name: Tape (decided).
 2. Logo source file (1024px PNG or SVG).
 3. Whisper model download: keep as the single exception (decided by default; revisit any time).
-4. Local deep-link actions (`reel://action?...`): keep (decided by default).
+4. Local deep-link actions (`tape://action?...`): keep (decided by default).

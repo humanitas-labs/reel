@@ -2371,9 +2371,7 @@ struct BoundedStoppedStudioMeta(RecordingMeta);
 
 impl BoundedStoppedStudioMeta {
     fn new(meta: RecordingMeta) -> Option<Self> {
-        let RecordingMetaInner::Studio(studio) = &meta.inner else {
-            return None;
-        };
+        let RecordingMetaInner::Studio(studio) = &meta.inner;
         let StudioRecordingMeta::MultipleSegments { inner } = studio.as_ref() else {
             return None;
         };
@@ -2381,8 +2379,6 @@ impl BoundedStoppedStudioMeta {
             || inner.segments.is_empty()
             || inner.segments.len() > MAX_PREPARING_SEGMENTS
             || inner.segments.capacity() > MAX_PREPARING_SEGMENTS * 2
-            || meta.sharing.is_some()
-            || meta.upload.is_some()
         {
             return None;
         }
@@ -3559,9 +3555,7 @@ fn current_time_f64() -> f64 {
 fn persist_failed_recording(recording_dir: &Path, error: &str) -> anyhow::Result<()> {
     let mut meta = RecordingMeta::load_for_project(recording_dir)
         .map_err(|error| anyhow!("load failed Studio recording metadata: {error}"))?;
-    let RecordingMetaInner::Studio(studio) = &mut meta.inner else {
-        bail!("Failed Studio recording has incompatible metadata");
-    };
+    let RecordingMetaInner::Studio(studio) = &mut meta.inner;
     let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         bail!("Failed Studio recording has incompatible segment metadata");
     };
@@ -3578,14 +3572,12 @@ fn persist_final_recording_meta(
 ) -> anyhow::Result<RecordingMeta> {
     use chrono::Local;
 
-    let pretty_name = Local::now().format("Cap %Y-%m-%d at %H.%M.%S").to_string();
+    let pretty_name = Local::now().format("Reel %Y-%m-%d at %H.%M.%S").to_string();
     let recording_meta = RecordingMeta {
         platform: Some(Platform::default()),
         project_path: recording_dir.to_path_buf(),
         pretty_name,
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(studio_meta.clone())),
-        upload: None,
     };
 
     recording_meta
@@ -3597,13 +3589,12 @@ fn persist_final_recording_meta(
 fn write_in_progress_meta(recording_dir: &Path) -> anyhow::Result<()> {
     use chrono::Local;
 
-    let pretty_name = Local::now().format("Cap %Y-%m-%d at %H.%M.%S").to_string();
+    let pretty_name = Local::now().format("Reel %Y-%m-%d at %H.%M.%S").to_string();
 
     let meta = RecordingMeta {
         platform: Some(Platform::default()),
         project_path: recording_dir.to_path_buf(),
         pretty_name,
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::MultipleSegments {
             inner: MultipleSegments {
                 segments: Vec::new(),
@@ -3611,7 +3602,6 @@ fn write_in_progress_meta(recording_dir: &Path) -> anyhow::Result<()> {
                 status: Some(StudioRecordingStatus::InProgress),
             },
         })),
-        upload: None,
     };
 
     meta.save_for_project()
@@ -6215,7 +6205,6 @@ mod clean_stop_receipt_tests {
             platform: Some(Platform::default()),
             project_path: PathBuf::from("synthetic.cap"),
             pretty_name: "Synthetic".to_string(),
-            sharing: None,
             inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::MultipleSegments {
                 inner: MultipleSegments {
                     segments: vec![segment; segments],
@@ -6237,7 +6226,6 @@ mod clean_stop_receipt_tests {
                     status: Some(StudioRecordingStatus::NeedsRemux),
                 },
             })),
-            upload: None,
         }
     }
 
@@ -6251,9 +6239,7 @@ mod clean_stop_receipt_tests {
     #[test]
     fn clean_stop_receipt_is_single_use_across_completion_clones() {
         let metadata = metadata(1, 1);
-        let RecordingMetaInner::Studio(studio) = &metadata.inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &metadata.inner;
         let completed = CompletedRecording {
             project_path: metadata.project_path.clone(),
             meta: studio.as_ref().clone(),
@@ -6297,9 +6283,7 @@ mod clean_stop_receipt_tests {
     fn clean_stop_receipt_bounds_are_preview_eligibility_only() {
         assert!(receipt(metadata(MAX_PREPARING_SEGMENTS, 0)).is_some());
         let oversized = metadata(MAX_PREPARING_SEGMENTS + 1, 0);
-        let RecordingMetaInner::Studio(studio) = &oversized.inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &oversized.inner;
         let completed = CompletedRecording {
             project_path: oversized.project_path.clone(),
             meta: studio.as_ref().clone(),
@@ -6320,9 +6304,7 @@ mod clean_stop_receipt_tests {
         for extra in [0, 1] {
             let mut metadata = metadata(1, 0);
             let fixed = metadata.project_path.capacity() + metadata.pretty_name.capacity();
-            let RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-                unreachable!();
-            };
+            let RecordingMetaInner::Studio(studio) = &mut metadata.inner;
             let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
                 unreachable!();
             };
@@ -6344,9 +6326,7 @@ mod clean_stop_receipt_tests {
             None,
         ] {
             let mut metadata = metadata(1, 0);
-            let RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-                unreachable!();
-            };
+            let RecordingMetaInner::Studio(studio) = &mut metadata.inner;
             let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
                 unreachable!();
             };
@@ -6359,9 +6339,7 @@ mod clean_stop_receipt_tests {
     #[test]
     fn clean_stop_receipt_moves_existing_persistence_and_configuration_allocations() {
         let metadata = metadata(1, 1);
-        let RecordingMetaInner::Studio(studio) = &metadata.inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &metadata.inner;
         let metadata_pointer = studio.as_ref() as *const StudioRecordingMeta;
         let mut configuration = cap_project::ProjectConfiguration::default();
         configuration
@@ -6374,9 +6352,7 @@ mod clean_stop_receipt_tests {
         )
         .unwrap();
         let claim = receipt.claim(Path::new("synthetic.cap")).unwrap();
-        let RecordingMetaInner::Studio(studio) = &claim.metadata().inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &claim.metadata().inner;
         assert_eq!(
             studio.as_ref() as *const StudioRecordingMeta,
             metadata_pointer
@@ -6406,9 +6382,7 @@ mod clean_stop_receipt_tests {
     fn clean_stop_receipt_snapshot_matches_existing_persisted_bytes() {
         let directory = tempfile::tempdir().unwrap();
         let metadata = metadata(1, 1);
-        let RecordingMetaInner::Studio(studio) = &metadata.inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &metadata.inner;
         let persisted = persist_final_recording_meta(directory.path(), studio).unwrap();
         let expected = serde_json::to_vec_pretty(&persisted).unwrap();
         assert_eq!(

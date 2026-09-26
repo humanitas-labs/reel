@@ -158,9 +158,7 @@ fn fixture(svg: bool) -> Fixture {
     metadata.project_path = original.clone();
     let mut reference_metadata = metadata.clone();
     reference_metadata.project_path = reference;
-    let cap_project::RecordingMetaInner::Studio(studio) = &mut reference_metadata.inner else {
-        panic!("Studio metadata expected");
-    };
+    let cap_project::RecordingMetaInner::Studio(studio) = &mut reference_metadata.inner;
     let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         panic!("Indexed metadata expected");
     };
@@ -441,9 +439,7 @@ async fn composed_parity(fixture: Fixture, frames: &[u32]) {
 async fn native_preparing_playback_seeks_match_ordinary_and_handoff_joins_sources() {
     let mut fixture = fixture(false);
     for metadata in [&mut fixture.metadata, &mut fixture.reference_metadata] {
-        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-            panic!("Studio metadata expected");
-        };
+        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner;
         let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
             panic!("Indexed metadata expected");
         };
@@ -600,9 +596,7 @@ async fn native_preparing_playback_audio_matches_completed_pcm_and_releases_its_
 
     let mut fixture = fixture(false);
     let expected_metadata = fixture.metadata.clone();
-    let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner else {
-        panic!("Studio metadata expected");
-    };
+    let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner;
     let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         panic!("Indexed metadata expected");
     };
@@ -888,9 +882,7 @@ async fn native_recorded_keyboard_without_overlay_matches_finalized_render() {
     for metadata in [&mut fixture.metadata, &mut fixture.reference_metadata] {
         let path = metadata.project_path.join("keyboard.bin");
         keyboard.write_to_file(&path).unwrap();
-        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-            panic!("Studio metadata expected");
-        };
+        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner;
         let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
             panic!("Indexed metadata expected");
         };
@@ -918,9 +910,7 @@ async fn native_recorded_keyboard_without_overlay_matches_finalized_render() {
 async fn native_three_clip_eviction_reopen_and_boundaries_match_finalized_render() {
     let mut fixture = fixture(false);
     for metadata in [&mut fixture.metadata, &mut fixture.reference_metadata] {
-        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-            panic!("Studio metadata expected");
-        };
+        let cap_project::RecordingMetaInner::Studio(studio) = &mut metadata.inner;
         let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
             panic!("Indexed metadata expected");
         };
@@ -1105,9 +1095,7 @@ fn handoff_fixture() -> Fixture {
         root.join("cursor.png"),
     )
     .unwrap();
-    let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner else {
-        panic!("Expected Studio metadata");
-    };
+    let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner;
     let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         panic!("Expected indexed metadata");
     };
@@ -1564,9 +1552,7 @@ async fn native_rejected_audio_handoff_installation_joins_and_releases_the_candi
 async fn native_studio_sound_releases_preparing_audio_and_preserves_transport() {
     for initially_enabled in [false, true] {
         let mut fixture = handoff_fixture();
-        let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner else {
-            panic!("Expected Studio metadata");
-        };
+        let cap_project::RecordingMetaInner::Studio(studio) = &mut fixture.metadata.inner;
         let cap_project::StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
             panic!("Expected indexed metadata");
         };

@@ -97,7 +97,7 @@ fn build() -> Guide {
         schema_version: GUIDE_SCHEMA_VERSION,
         binary: env!("CARGO_PKG_NAME"),
         version: env!("CARGO_PKG_VERSION"),
-        description: "Cap screen recording, driven from the command line. Add --json to any command \
+        description: "Reel screen recording, driven from the command line. Add --json to any command \
                       for machine-readable output.",
         output_convention: OutputConvention {
             json_flag: "--json (global) or a command's --format json",

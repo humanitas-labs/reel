@@ -292,12 +292,11 @@ async fn cmd_suite(
         "sync" => suites::run_sync_suite(&hardware, duration).await?,
         "av-alignment" => suites::run_av_alignment_suite(&hardware, duration).await?,
         "av-step" => suites::run_av_step_suite(&hardware, duration).await?,
-        "av-step-instant" => suites::run_av_step_instant_suite(&hardware, duration).await?,
         "drift" => suites::run_drift_suite(&hardware, duration).await?,
         "kill9-crash-test" | "kill9" => suites::run_kill9_crash_suite(&hardware, duration).await?,
         _ => {
             anyhow::bail!(
-                "Unknown suite: {}. Available: recording, encoding, playback, performance, sync, av-alignment, av-step, av-step-instant, drift, kill9-crash-test",
+                "Unknown suite: {}. Available: recording, encoding, playback, performance, sync, av-alignment, av-step, drift, kill9-crash-test",
                 name
             );
         }

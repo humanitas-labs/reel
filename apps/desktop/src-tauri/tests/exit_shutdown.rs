@@ -3,8 +3,8 @@ mod exit_shutdown;
 
 use exit_shutdown::{
     AppExitAction, ExitBlocked, ExitRequestDecision, abort_join_handles, app_exit_action,
-    collect_device_inventory, handle_exit_requested, prepare_then_begin_exit,
-    read_target_under_cursor, recording_start_allowed, run_while_active, with_idle_recording_state,
+    collect_device_inventory, handle_exit_requested, read_target_under_cursor,
+    recording_start_allowed, run_while_active, with_idle_recording_state,
 };
 use std::sync::{
     Arc,
@@ -47,46 +47,6 @@ fn exit_refusals_do_not_start_shutdown_or_disable_active_watchers() {
     }
     assert!(recording_start_allowed(true).is_err());
     assert!(!ExitBlocked::AlreadyExiting.message().is_empty());
-}
-
-#[test]
-fn failed_handoff_preparation_leaves_recording_available_and_success_commits_before_unlock() {
-    for succeeds in [false, true] {
-        let state = tokio::sync::RwLock::new(());
-        let exiting = AtomicBool::new(false);
-        let prepared = AtomicBool::new(false);
-        let result = with_idle_recording_state(
-            &state,
-            |_| Ok(()),
-            || {
-                prepare_then_begin_exit(
-                    || {
-                        assert!(state.try_write().is_err());
-                        assert!(!exiting.load(Ordering::Acquire));
-                        prepared.store(true, Ordering::Release);
-                        if succeeds {
-                            Ok(())
-                        } else {
-                            Err("Child launch failed".into())
-                        }
-                    },
-                    || {
-                        assert!(state.try_write().is_err());
-                        assert!(prepared.load(Ordering::Acquire));
-                        !exiting.swap(true, Ordering::AcqRel)
-                    },
-                )
-            },
-        )
-        .unwrap();
-        assert_eq!(result.is_ok(), succeeds);
-        assert_eq!(exiting.load(Ordering::Acquire), succeeds);
-        assert!(state.try_write().is_ok());
-        assert_eq!(
-            recording_start_allowed(exiting.load(Ordering::Acquire)).is_ok(),
-            !succeeds
-        );
-    }
 }
 
 #[test]

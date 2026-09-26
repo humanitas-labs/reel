@@ -107,14 +107,14 @@ const setupPermissions: readonly SetupPermission[] = [
 		name: "Screen Recording",
 		key: "screenRecording",
 		description:
-			"Click Grant to allow when macOS asks, or pick Cap in System Settings if needed. Restart the app after allowing screen recording.",
+			"Click Grant to allow when macOS asks, or pick Reel in System Settings if needed. Restart the app after allowing screen recording.",
 		requiresManualGrant: false,
 	},
 	{
 		name: "Accessibility",
 		key: "accessibility",
 		description:
-			"During recording, Cap collects mouse activity locally to generate automatic zoom in segments.",
+			"During recording, Reel collects mouse activity locally to generate automatic zoom in segments.",
 		requiresManualGrant: false,
 	},
 	{
@@ -395,8 +395,8 @@ export default function OnboardingPage() {
 	});
 
 	const nextLabel = () => {
-		if (permissionsOnly()) return "Continue to Cap";
-		if (step() === totalSteps() - 1) return "Start Using Cap";
+		if (permissionsOnly()) return "Continue to Reel";
+		if (step() === totalSteps() - 1) return "Start Using Reel";
 		return "Continue";
 	};
 
@@ -677,8 +677,8 @@ function ModesOverviewStep(props: { active: boolean }) {
 					One app, every workflow
 				</h2>
 				<p class="text-[14px] text-gray-10 leading-relaxed">
-					Whether you need studio quality or a quick screenshot — Cap has a mode
-					for it.
+					Whether you need studio quality or a quick screenshot — Reel has a
+					mode for it.
 				</p>
 			</div>
 
@@ -834,7 +834,7 @@ function ToggleStep(props: { active: boolean }) {
 					Switch modes anytime
 				</h2>
 				<p class="text-[14px] text-gray-10 leading-relaxed">
-					Toggle between modes with a single click from the main Cap window.
+					Toggle between modes with a single click from the main Reel window.
 				</p>
 			</div>
 
@@ -957,11 +957,11 @@ function ShortcutsStep(props: { active: boolean }) {
 					<IconCapSettings class="size-5 text-gray-11" />
 				</div>
 				<h2 class="text-2xl font-bold text-gray-12 tracking-tight">
-					Make Cap yours
+					Make Reel yours
 				</h2>
 				<p class="text-[14px] text-gray-10 leading-relaxed">
-					Customize everything from keyboard shortcuts to storage. Cap adapts to
-					your workflow.
+					Customize everything from keyboard shortcuts to storage. Reel adapts
+					to your workflow.
 				</p>
 			</div>
 
@@ -1370,7 +1370,7 @@ function StudioMockup(props: { active: boolean }) {
 								<div class="size-2 rounded-full bg-gray-6" />
 							</div>
 							<span class="text-[10px] text-gray-11 font-medium">
-								Cap Editor
+								Reel Editor
 							</span>
 						</div>
 						<div
@@ -1720,7 +1720,7 @@ function StartupOverlay(props: {
 						/>
 					</div>
 					<h1 class="text-5xl md:text-5xl font-bold mb-4 mt-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.2)]">
-						Welcome to Cap
+						Welcome to Reel
 					</h1>
 					<p class="text-xl md:text-2xl opacity-80 mx-auto drop-shadow-[0_0_20px_rgba(0,0,0,0.2)] whitespace-nowrap">
 						Beautiful screen recordings, owned by you.
@@ -1798,8 +1798,8 @@ function PermissionsStep(props: {
 	const maybePromptRestartForPermission = async (permission: OSPermission) => {
 		const message =
 			permission === "accessibility"
-				? "After enabling Accessibility for Cap in System Settings, macOS may keep showing it as denied until you restart the app."
-				: "After adding Cap in System Settings, you'll need to restart the app for the permission to take effect.";
+				? "After enabling Accessibility for Reel in System Settings, macOS may keep showing it as denied until you restart the app."
+				: "After adding Reel in System Settings, you'll need to restart the app for the permission to take effect.";
 		const shouldRestart = await ask(message, {
 			title: "Restart Required",
 			kind: "info",
@@ -1811,8 +1811,8 @@ function PermissionsStep(props: {
 				await commands.restartApp();
 			} catch (error) {
 				await showMessage(
-					typeof error === "string" ? error : "Unable to restart Cap safely.",
-					{ title: "Unable to restart Cap", kind: "warning" },
+					typeof error === "string" ? error : "Unable to restart Reel safely.",
+					{ title: "Unable to restart Reel", kind: "warning" },
 				);
 			}
 		}
@@ -1881,7 +1881,7 @@ function PermissionsStep(props: {
 					Permissions Required
 				</h2>
 				<p class="text-[14px] text-gray-10 leading-relaxed">
-					Cap needs a few permissions to record your screen and capture audio.
+					Reel needs a few permissions to record your screen and capture audio.
 				</p>
 			</div>
 

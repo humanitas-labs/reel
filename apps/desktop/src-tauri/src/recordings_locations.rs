@@ -312,12 +312,6 @@ fn project_is_in_use(project: &Path, in_use: &HashSet<PathBuf>) -> bool {
                     false
                 }
             }
-            cap_project::RecordingMetaInner::Instant(instant) => {
-                matches!(
-                    instant,
-                    cap_project::InstantRecordingMeta::InProgress { .. }
-                )
-            }
         },
         // Unreadable meta is not proof of activity; old or partially written
         // projects still deserve to be moved rather than stranded.

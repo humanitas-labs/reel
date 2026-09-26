@@ -69,14 +69,7 @@ pub async fn run_av_step_suite(
     hardware: &DiscoveredHardware,
     duration: u64,
 ) -> Result<TestResults> {
-    av_step::run_suite(hardware, duration, av_step::RecordMode::Studio).await
-}
-
-pub async fn run_av_step_instant_suite(
-    hardware: &DiscoveredHardware,
-    duration: u64,
-) -> Result<TestResults> {
-    av_step::run_suite(hardware, duration, av_step::RecordMode::Instant).await
+    av_step::run_suite(hardware, duration).await
 }
 
 pub async fn run_kill9_crash_suite(

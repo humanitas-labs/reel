@@ -226,7 +226,6 @@ async fn measure(
             capture_target,
             capture_system_audio: config.system_audio,
             mode: cap_recording::RecordingMode::Studio,
-            organization_id: None,
         },
     )
     .await?;

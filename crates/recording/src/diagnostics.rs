@@ -469,9 +469,7 @@ fn segment_from_studio(
 }
 
 fn digest_recording(index: usize, path: &Path) -> RecentRecordingDigest {
-    use cap_project::{
-        InstantRecordingMeta, RecordingMetaInner, StudioRecordingMeta, StudioRecordingStatus,
-    };
+    use cap_project::{RecordingMetaInner, StudioRecordingMeta, StudioRecordingStatus};
 
     let mut digest = RecentRecordingDigest {
         index,
@@ -522,37 +520,6 @@ fn digest_recording(index: usize, path: &Path) -> RecentRecordingDigest {
                             segment.system_audio.as_ref(),
                         ));
                     }
-                }
-            }
-        }
-        RecordingMetaInner::Instant(instant) => {
-            digest.mode = Some("instant".to_string());
-            match instant {
-                InstantRecordingMeta::InProgress { .. } => {
-                    digest.status = Some("in_progress".to_string())
-                }
-                InstantRecordingMeta::Failed { error } => {
-                    digest.status = Some("failed".to_string());
-                    digest.error = Some(redact_home_paths(error));
-                }
-                InstantRecordingMeta::Complete { fps, .. } => {
-                    digest.status = Some("complete".to_string());
-                    // Instant recordings mux one output; the fps is the only
-                    // per-track fact the meta carries.
-                    digest.segments.push(RecentRecordingSegment {
-                        display_fps: *fps,
-                        display_device_id: None,
-                        display_start_time: None,
-                        camera_fps: None,
-                        camera_device_id: None,
-                        camera_start_time: None,
-                        mic_device_id: None,
-                        mic_start_time: None,
-                        mic_gap_summary: None,
-                        system_audio_device_id: None,
-                        system_audio_start_time: None,
-                        system_audio_gap_summary: None,
-                    });
                 }
             }
         }
@@ -1424,16 +1391,11 @@ mod tests {
                 ]
             }"#,
         );
-        write_recording(
-            dir,
-            "instant.cap",
-            r#"{ "pretty_name": "Instant", "fps": 30, "sample_rate": 48000 }"#,
-        );
         write_recording(dir, "broken.cap", "{ not json");
         std::fs::create_dir_all(dir.join("not-a-recording")).unwrap();
 
         let digests = collect_recent_recordings(dir, 5);
-        assert_eq!(digests.len(), 3, "only .cap directories are digested");
+        assert_eq!(digests.len(), 2, "only .cap directories are digested");
 
         // Entries are identified by mode now: the digest deliberately carries
         // no name, because a .cap directory is named from the capture
@@ -1461,13 +1423,6 @@ mod tests {
             Some(12)
         );
         assert!(studio.error.is_none());
-
-        let instant = digests
-            .iter()
-            .find(|d| d.mode.as_deref() == Some("instant"))
-            .expect("instant digest");
-        assert_eq!(instant.mode.as_deref(), Some("instant"));
-        assert_eq!(instant.segments.first().map(|s| s.display_fps), Some(30));
 
         let broken = digests
             .iter()

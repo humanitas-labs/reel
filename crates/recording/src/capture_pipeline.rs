@@ -185,7 +185,6 @@ impl MakeCapturePipeline for screen_capture::CMSampleBufferCapture {
                 .with_start_gate(start_gate.clone())
                 .build::<AVFoundationMp4Muxer>(AVFoundationMp4MuxerConfig {
                     output_height: output_size.map(|(_, h)| h),
-                    instant_mode: false,
                     ultra_quality: ultra,
                     compatibility_quality: compatibility,
                 })

@@ -30,7 +30,6 @@ pub struct RecordingSettingsStore {
     pub camera_id: Option<DeviceOrModelID>,
     pub mode: Option<RecordingMode>,
     pub system_audio: bool,
-    pub organization_id: Option<String>,
     pub camera_device_settings: HashMap<String, CameraDeviceSettings>,
     pub microphone_device_settings: HashMap<String, MicrophoneDeviceSettings>,
 }
@@ -133,7 +132,6 @@ mod tests {
                 "cameraId": camera_id,
                 "mode": "studio",
                 "systemAudio": true,
-                "organizationId": "saved-organization",
                 "cameraDeviceSettings": {
                     "model:046d:08e5": {"width": 1280, "height": 720, "frameRate": 60.0}
                 },

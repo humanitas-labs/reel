@@ -633,9 +633,7 @@ struct RawTracks {
 fn locate_raw_tracks(project_path: &Path) -> Result<RawTracks, String> {
     let meta = RecordingMeta::load_for_project(project_path)
         .map_err(|e| format!("failed to load recording meta: {e}"))?;
-    let RecordingMetaInner::Studio(studio) = &meta.inner else {
-        return Err("self-test recording is not a studio recording".to_string());
-    };
+    let RecordingMetaInner::Studio(studio) = &meta.inner;
     let StudioRecordingMeta::MultipleSegments { inner, .. } = &**studio else {
         return Err("unexpected single-segment recording".to_string());
     };

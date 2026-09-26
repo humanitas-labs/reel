@@ -16,9 +16,7 @@ pub(super) fn adapt_audio(
     control: &Arc<ConsumerControl>,
 ) -> Result<AudioAdaptation, String> {
     let mut expected_metadata = metadata.clone();
-    let cap_project::RecordingMetaInner::Studio(studio) = &mut expected_metadata.inner else {
-        return Err("Preparing audio requires Studio metadata".into());
-    };
+    let cap_project::RecordingMetaInner::Studio(studio) = &mut expected_metadata.inner;
     let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         return Err("Preparing audio requires stopped segments".into());
     };

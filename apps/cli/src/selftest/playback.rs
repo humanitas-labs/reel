@@ -886,9 +886,7 @@ mod fixture {
             platform: Some(Platform::default()),
             project_path: project_dir.to_path_buf(),
             pretty_name: "Cap Playback Selftest Fixture".to_string(),
-            sharing: None,
             inner: RecordingMetaInner::Studio(Box::new(meta)),
-            upload: None,
         };
         recording_meta
             .save_for_project()

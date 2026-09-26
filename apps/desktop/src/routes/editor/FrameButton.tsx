@@ -18,7 +18,7 @@ import { EditorButton, Input } from "./ui";
 const DEFAULT_FRAME_CONFIG: FrameConfiguration = {
 	style: "none",
 	theme: "dark",
-	url: "Cap.so",
+	url: "example.com",
 	title: "",
 };
 
@@ -166,7 +166,7 @@ function FrameSettings() {
 									<div class="w-40">
 										<Input
 											value={frame().url}
-											placeholder="cap.so"
+											placeholder="example.com"
 											onInput={(e) =>
 												updateFrame({ url: e.currentTarget.value })
 											}

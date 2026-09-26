@@ -1,9 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use cap_project::{
-    InstantRecordingMeta, RecordingMeta, RecordingMetaInner, StudioRecordingMeta,
-    StudioRecordingStatus,
-};
+use cap_project::{RecordingMeta, RecordingMetaInner, StudioRecordingMeta, StudioRecordingStatus};
 use serde::Serialize;
 
 use crate::{OutputFormat, write_json};
@@ -99,10 +96,8 @@ struct ValidationReport {
 }
 
 fn recording_type(meta: &RecordingMeta) -> &'static str {
-    match meta.inner {
-        RecordingMetaInner::Studio(_) => "studio",
-        RecordingMetaInner::Instant(_) => "instant",
-    }
+    let RecordingMetaInner::Studio(_) = meta.inner;
+    "studio"
 }
 
 fn required_check(role: &'static str, path: PathBuf) -> FileCheck {
@@ -192,23 +187,6 @@ fn studio_problems(studio: &StudioRecordingMeta) -> Vec<String> {
     problems
 }
 
-fn instant_problems(instant: &InstantRecordingMeta) -> Vec<String> {
-    match instant {
-        InstantRecordingMeta::Complete { .. } => Vec::new(),
-        InstantRecordingMeta::InProgress { recording } => {
-            let state = if *recording {
-                "still recording"
-            } else {
-                "incomplete"
-            };
-            vec![format!("instant recording is {state}")]
-        }
-        InstantRecordingMeta::Failed { error } => {
-            vec![format!("instant recording failed: {error}")]
-        }
-    }
-}
-
 fn build_report(project_path: &Path, meta: &RecordingMeta) -> ValidationReport {
     let mut checks = vec![required_check(
         "recordingMeta",
@@ -219,17 +197,10 @@ fn build_report(project_path: &Path, meta: &RecordingMeta) -> ValidationReport {
         project_path.join("project-config.json"),
     ));
 
-    let problems = match &meta.inner {
-        RecordingMetaInner::Studio(studio) => {
-            checks.extend(studio_checks(meta, studio));
-            checks.push(optional_check("output", meta.output_path()));
-            studio_problems(studio)
-        }
-        RecordingMetaInner::Instant(instant) => {
-            checks.push(required_check("output", meta.output_path()));
-            instant_problems(instant)
-        }
-    };
+    let RecordingMetaInner::Studio(studio) = &meta.inner;
+    checks.extend(studio_checks(meta, studio));
+    checks.push(optional_check("output", meta.output_path()));
+    let problems = studio_problems(studio);
 
     let missing: Vec<PathBuf> = checks
         .iter()

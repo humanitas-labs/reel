@@ -45,7 +45,6 @@ pub struct MP4Encoder {
     last_audio_end_pts: Option<i64>,
     last_audio_timescale: Option<i32>,
     pending_video_frame: Option<PendingVideoFrame>,
-    instant_mode: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -129,7 +128,6 @@ impl MP4Encoder {
             audio_config,
             output_height,
             BitrateProfile::Balanced,
-            false,
         )
     }
 
@@ -145,7 +143,6 @@ impl MP4Encoder {
             audio_config,
             output_height,
             BitrateProfile::Ultra,
-            false,
         )
     }
 
@@ -161,23 +158,6 @@ impl MP4Encoder {
             audio_config,
             output_height,
             BitrateProfile::Compatibility,
-            false,
-        )
-    }
-
-    pub fn init_instant_mode(
-        output: PathBuf,
-        video_config: VideoInfo,
-        audio_config: Option<AudioInfo>,
-        output_height: Option<u32>,
-    ) -> Result<Self, InitError> {
-        Self::init_with_options(
-            output,
-            video_config,
-            audio_config,
-            output_height,
-            BitrateProfile::Balanced,
-            true,
         )
     }
 
@@ -187,7 +167,6 @@ impl MP4Encoder {
         audio_config: Option<AudioInfo>,
         output_height: Option<u32>,
         bitrate_profile: BitrateProfile,
-        instant_mode: bool,
     ) -> Result<Self, InitError> {
         let ultra_quality = matches!(bitrate_profile, BitrateProfile::Ultra);
         info!(
@@ -197,7 +176,6 @@ impl MP4Encoder {
             frame_rate = ?video_config.frame_rate,
             output_height = ?output_height,
             has_audio = audio_config.is_some(),
-            instant_mode,
             "Initializing AVFoundation MP4 encoder (VideoToolbox hardware encoding)"
         );
         debug!("{video_config:#?}");
@@ -277,31 +255,23 @@ impl MP4Encoder {
                 ns::Number::with_u32(output_height).as_id_ref(),
             );
 
-            let bitrate = if instant_mode {
-                get_instant_mode_bitrate(output_width as f32, output_height as f32, fps)
-            } else {
-                match bitrate_profile {
-                    BitrateProfile::Ultra => {
-                        get_ultra_bitrate(output_width as f32, output_height as f32, fps)
-                    }
-                    BitrateProfile::Balanced => {
-                        get_average_bitrate(output_width as f32, output_height as f32, fps)
-                    }
-                    BitrateProfile::Compatibility => {
-                        get_compatibility_bitrate(output_width as f32, output_height as f32, fps)
-                    }
+            let bitrate = match bitrate_profile {
+                BitrateProfile::Ultra => {
+                    get_ultra_bitrate(output_width as f32, output_height as f32, fps)
+                }
+                BitrateProfile::Balanced => {
+                    get_average_bitrate(output_width as f32, output_height as f32, fps)
+                }
+                BitrateProfile::Compatibility => {
+                    get_compatibility_bitrate(output_width as f32, output_height as f32, fps)
                 }
             };
 
-            debug!(
-                instant_mode,
-                ?bitrate_profile,
-                "recording bitrate: {bitrate}"
-            );
+            debug!(?bitrate_profile, "recording bitrate: {bitrate}");
 
             let keyframe_interval = keyframe_interval_for_fps(fps);
 
-            let allow_frame_reordering = ultra_quality && !instant_mode;
+            let allow_frame_reordering = ultra_quality;
 
             output_settings.insert(
                 av::video_settings_keys::compression_props(),
@@ -453,7 +423,6 @@ impl MP4Encoder {
             last_audio_end_pts: None,
             last_audio_timescale: None,
             pending_video_frame: None,
-            instant_mode,
         })
     }
 
@@ -525,9 +494,8 @@ impl MP4Encoder {
             }
         }
 
-        if !self.instant_mode
-            && let (Some(audio_end_pts), Some(audio_ts)) =
-                (self.last_audio_end_pts, self.last_audio_timescale)
+        if let (Some(audio_end_pts), Some(audio_ts)) =
+            (self.last_audio_end_pts, self.last_audio_timescale)
         {
             let audio_secs = audio_end_pts as f64 / audio_ts as f64;
             let video_secs = timestamp
@@ -1098,12 +1066,6 @@ fn get_compatibility_bitrate(width: f32, height: f32, fps: f32) -> f32 {
     (pixels * fps_factor * 2.5).clamp(MIN_COMPATIBILITY_BITRATE, MAX_COMPATIBILITY_BITRATE)
 }
 
-fn get_instant_mode_bitrate(width: f32, height: f32, fps: f32) -> f32 {
-    let pixel_ratio = width * height / (1920.0 * 1080.0);
-    let fps_ratio = fps.min(60.0) / 30.0;
-    1_500_000.0 + pixel_ratio * 1_500_000.0 + fps_ratio * 500_000.0
-}
-
 fn keyframe_interval_for_fps(fps: f32) -> i32 {
     (fps * 0.75).floor().max(1.0) as i32
 }
@@ -1300,23 +1262,6 @@ mod tests {
     }
 
     #[test]
-    fn instant_mode_succeeds_with_valid_config() {
-        let output = std::env::temp_dir().join("cap_test_instant_encoder.mp4");
-        let _ = std::fs::remove_file(&output);
-
-        let config = valid_video_config();
-        let result = MP4Encoder::init_instant_mode(output.clone(), config, None, None);
-
-        assert!(
-            result.is_ok(),
-            "Instant mode valid config should succeed: {}",
-            result.err().unwrap()
-        );
-
-        let _ = std::fs::remove_file(&output);
-    }
-
-    #[test]
     fn bitrate_calculations() {
         let hd_30 = get_average_bitrate(1920.0, 1080.0, 30.0);
         assert!(hd_30 < 15_000_000.0);
@@ -1324,12 +1269,6 @@ mod tests {
 
         let hd_60 = get_average_bitrate(1920.0, 1080.0, 60.0);
         assert!(hd_60 > hd_30);
-
-        let instant_hd_30 = get_instant_mode_bitrate(1920.0, 1080.0, 30.0);
-        assert!(
-            instant_hd_30 < hd_30,
-            "Instant mode bitrate should be lower"
-        );
     }
 
     fn test_output_path(name: &str) -> PathBuf {
@@ -1549,8 +1488,7 @@ mod tests {
             output_height: Option<u32>,
         ) -> Self {
             let encoder =
-                MP4Encoder::init_instant_mode(output, video_config, audio_config, output_height)
-                    .unwrap();
+                MP4Encoder::init(output, video_config, audio_config, output_height).unwrap();
 
             let pool =
                 create_pixel_buffer_pool(video_config.width as usize, video_config.height as usize);
@@ -1857,95 +1795,6 @@ mod tests {
     }
 
     #[test]
-    fn realistic_retina_instant_mode_10s() {
-        let output = test_output_path("realistic_retina_10s");
-        let video = retina_video_config();
-        let audio = wireless_audio_config();
-        let output_height = Some(1248u32);
-
-        let harness =
-            ThreadedEncoderHarness::new(output.clone(), video, Some(audio), output_height);
-
-        let recording_secs = 10u64;
-        let fps = 30u64;
-        let total_video_frames = recording_secs * fps;
-
-        let mut video_timestamps = Vec::new();
-        for i in 0..total_video_frames {
-            let base_ms = i * 1000 / fps;
-            let jitter_us = ((i * 7 + 13) % 3000) as i64 - 1500;
-            let ts_us = (base_ms as i64 * 1000 + jitter_us).max(0) as u64;
-            video_timestamps.push(Duration::from_micros(ts_us));
-        }
-
-        let audio_frames_per_sec = 48000u64 / 3840;
-        let total_audio_frames = recording_secs * audio_frames_per_sec;
-
-        let wireless_jitter: Vec<u64> = (0..total_audio_frames)
-            .map(|i| {
-                if i % 17 == 0 {
-                    30
-                } else if i % 7 == 0 {
-                    15
-                } else {
-                    0
-                }
-            })
-            .collect();
-
-        let enc_v = harness.encoder.clone();
-        let pool = harness.pool.clone();
-        let video_handle =
-            ThreadedEncoderHarness::run_video_thread(enc_v, pool, video_timestamps, 1000 / fps);
-
-        let enc_a = harness.encoder.clone();
-        let audio_pace = 1000 / audio_frames_per_sec;
-        let audio_handle = ThreadedEncoderHarness::run_audio_thread(
-            enc_a,
-            total_audio_frames,
-            3840,
-            audio_pace,
-            wireless_jitter,
-        );
-
-        let (v_appended, v_dropped, v_errors) = video_handle.join().unwrap();
-        let (a_appended, a_dropped, a_errors) = audio_handle.join().unwrap();
-
-        assert!(
-            v_errors.is_empty(),
-            "Video encoding errors: {v_errors:?} (appended={v_appended}, dropped={v_dropped})"
-        );
-        assert!(
-            a_errors.is_empty(),
-            "Audio encoding errors: {a_errors:?} (appended={a_appended}, dropped={a_dropped})"
-        );
-
-        assert!(
-            v_appended >= total_video_frames / 2,
-            "Expected at least {} video frames, got {v_appended}",
-            total_video_frames / 2,
-        );
-        assert!(
-            a_appended >= total_audio_frames / 2,
-            "Expected at least {} audio frames, got {a_appended}",
-            total_audio_frames / 2,
-        );
-
-        let finish_ts = Duration::from_secs(recording_secs + 1);
-        let result = harness.encoder.lock().unwrap().finish(Some(finish_ts));
-        assert!(result.is_ok(), "Finish failed: {result:?}");
-
-        let meta = std::fs::metadata(&output).unwrap();
-        assert!(
-            meta.len() > 10_000,
-            "Output file too small: {} bytes",
-            meta.len()
-        );
-
-        let _ = std::fs::remove_file(&output);
-    }
-
-    #[test]
     fn realistic_clock_drift_6pct_with_wireless_mic() {
         let output = test_output_path("drift_6pct_wireless");
         let video = retina_video_config();
@@ -2158,61 +2007,6 @@ mod tests {
     }
 
     #[test]
-    fn instant_mode_video_advances_past_drift_threshold() {
-        let output = test_output_path("instant_video_past_drift");
-        let video = valid_video_config();
-        let audio = wireless_audio_config();
-
-        let mut encoder =
-            MP4Encoder::init_instant_mode(output.clone(), video, Some(audio), None).unwrap();
-
-        let pool = create_pixel_buffer_pool(1920, 1080);
-
-        let first_audio = create_test_audio_frame(48000, 1024);
-        encoder
-            .queue_audio_frame(&first_audio, Duration::ZERO)
-            .unwrap();
-
-        let mut accepted_past_threshold = 0u64;
-        let threshold_ms = (MAX_AV_DRIFT_SECS * 1000.0) as u64 + 500;
-
-        for i in 0..60u64 {
-            let ts_ms = i * 100;
-            let timestamp = Duration::from_millis(ts_ms);
-            let frame = create_test_video_frame(&pool, (ts_ms as i64) * 1000, 100_000);
-
-            let mut retries = 0u32;
-            loop {
-                let result = encoder.queue_video_frame(frame.clone(), timestamp);
-                match result {
-                    Ok(()) => {
-                        if ts_ms > threshold_ms {
-                            accepted_past_threshold += 1;
-                        }
-                        break;
-                    }
-                    Err(QueueFrameError::NotReadyForMore) => {
-                        retries += 1;
-                        if retries > 50 {
-                            break;
-                        }
-                        std::thread::sleep(Duration::from_millis(1));
-                    }
-                    Err(e) => panic!("Video encode failed at frame {i}: {e}"),
-                }
-            }
-        }
-
-        assert!(
-            accepted_past_threshold > 0,
-            "Instant mode: video frames must be accepted past the {MAX_AV_DRIFT_SECS}s drift threshold"
-        );
-
-        let _ = encoder.finish(Some(Duration::from_secs(7)));
-        let _ = std::fs::remove_file(&output);
-    }
-
-    #[test]
     fn non_instant_mode_video_throttled_by_audio_drift() {
         let output = test_output_path("non_instant_video_throttled");
         let video = valid_video_config();
@@ -2332,7 +2126,7 @@ mod tests {
             cidre::ns::Number::with_u32(output_height).as_id_ref(),
         );
 
-        let bitrate = get_instant_mode_bitrate(output_width as f32, output_height as f32, fps);
+        let bitrate = get_average_bitrate(output_width as f32, output_height as f32, fps);
         unsafe {
             output_settings.insert(
                 av::video_settings_keys::compression_props(),
@@ -2607,7 +2401,6 @@ mod tests {
         width: u32,
         height: u32,
         fps: f32,
-        instant_mode: bool,
     ) -> Result<(arc::R<av::AssetWriter>, arc::R<av::AssetWriterInput>), String> {
         use cidre::{av, cf};
 
@@ -2640,11 +2433,7 @@ mod tests {
             cidre::ns::Number::with_u32(output_height).as_id_ref(),
         );
 
-        let bitrate = if instant_mode {
-            get_instant_mode_bitrate(output_width as f32, output_height as f32, fps)
-        } else {
-            get_average_bitrate(output_width as f32, output_height as f32, fps)
-        };
+        let bitrate = get_average_bitrate(output_width as f32, output_height as f32, fps);
 
         unsafe {
             output_settings.insert(
@@ -2778,7 +2567,7 @@ mod tests {
         let output = test_output_path("dup_pts_trigger");
 
         let (mut asset_writer, mut video_input) =
-            setup_raw_writer(&output, 1920, 1080, 30.0, true).unwrap();
+            setup_raw_writer(&output, 1920, 1080, 30.0).unwrap();
 
         let pool = create_pixel_buffer_pool(1920, 1080);
 
@@ -2826,7 +2615,7 @@ mod tests {
         let output = test_output_path("uyvy_camera_ok");
 
         let (mut asset_writer, mut video_input) =
-            setup_raw_writer(&output, 1920, 1080, 60.0, true).unwrap();
+            setup_raw_writer(&output, 1920, 1080, 60.0).unwrap();
         let pool = create_pixel_buffer_pool_with_format(1920, 1080, cidre::cv::PixelFormat::_2VUY);
 
         let timings: Vec<(i64, i64)> = (0..120i64).map(|i| (i * 16_666, 16_666)).collect();
@@ -3043,7 +2832,7 @@ mod tests {
         let output_dyn = test_output_path("overlap_dyn_retina");
 
         let (mut writer_c, mut input_c) =
-            setup_raw_writer(&output_const, 2940, 1912, 30.0, true).unwrap();
+            setup_raw_writer(&output_const, 2940, 1912, 30.0).unwrap();
         let pool_c = create_pixel_buffer_pool(2940, 1912);
 
         let result_const =
@@ -3069,8 +2858,7 @@ mod tests {
             }
         };
 
-        let (mut writer_d, mut input_d) =
-            setup_raw_writer(&output_dyn, 2940, 1912, 30.0, true).unwrap();
+        let (mut writer_d, mut input_d) = setup_raw_writer(&output_dyn, 2940, 1912, 30.0).unwrap();
         let pool_d = create_pixel_buffer_pool(2940, 1912);
 
         let result_dyn =
@@ -3131,7 +2919,7 @@ mod tests {
             "Should have many overlapping extents, got {overlaps}"
         );
 
-        let (mut writer, mut input) = setup_raw_writer(&output, 2940, 1912, 30.0, true).unwrap();
+        let (mut writer, mut input) = setup_raw_writer(&output, 2940, 1912, 30.0).unwrap();
         let pool = create_pixel_buffer_pool(2940, 1912);
 
         let result = feed_frames_to_writer(&mut input, &writer, &pool, &timings, 0);
@@ -3175,7 +2963,7 @@ mod tests {
 
             let output_dyn = test_output_path("extreme_overlap_dyn");
             let (mut writer_d, mut input_d) =
-                setup_raw_writer(&output_dyn, 2940, 1912, 30.0, true).unwrap();
+                setup_raw_writer(&output_dyn, 2940, 1912, 30.0).unwrap();
             let pool_d = create_pixel_buffer_pool(2940, 1912);
 
             let result_dyn =
@@ -3206,8 +2994,7 @@ mod tests {
         let video = retina_video_config();
         let audio = wireless_audio_config();
 
-        let mut encoder =
-            MP4Encoder::init_instant_mode(output.clone(), video, Some(audio), Some(1248)).unwrap();
+        let mut encoder = MP4Encoder::init(output.clone(), video, Some(audio), Some(1248)).unwrap();
 
         let pool = create_pixel_buffer_pool(2940, 1912);
 
@@ -3421,112 +3208,6 @@ mod tests {
     }
 
     #[test]
-    fn realistic_retina_instant_mode_65s() {
-        let output = test_output_path("realistic_retina_65s");
-        let video = retina_video_config();
-        let audio = wireless_audio_config();
-        let output_height = Some(1248u32);
-
-        let harness =
-            ThreadedEncoderHarness::new(output.clone(), video, Some(audio), output_height);
-
-        let recording_secs = 65u64;
-        let fps = 30u64;
-        let total_video_frames = recording_secs * fps;
-
-        let mut video_timestamps = Vec::new();
-        let mut drop_count = 0u64;
-        for i in 0..total_video_frames {
-            let is_drop = i % 9 == 7 || i % 31 == 15 || (i > 1500 && i % 20 == 0);
-            if is_drop {
-                drop_count += 1;
-                continue;
-            }
-            let base_us = i * 1_000_000 / fps;
-            let jitter_us = ((i * 11 + 17) % 4000) as i64 - 2000;
-            let ts_us = (base_us as i64 + jitter_us).max(0) as u64;
-            video_timestamps.push(Duration::from_micros(ts_us));
-        }
-
-        let audio_frames_per_sec = 48000u64 / 3840;
-        let total_audio_frames = recording_secs * audio_frames_per_sec;
-
-        let wireless_jitter: Vec<u64> = (0..total_audio_frames)
-            .map(|i| {
-                if i % 23 == 0 {
-                    40
-                } else if i % 11 == 0 {
-                    20
-                } else if i % 5 == 0 {
-                    5
-                } else {
-                    0
-                }
-            })
-            .collect();
-
-        let enc_v = harness.encoder.clone();
-        let pool = harness.pool.clone();
-        let video_handle = ThreadedEncoderHarness::run_video_thread(
-            enc_v,
-            pool,
-            video_timestamps.clone(),
-            1000 / fps,
-        );
-
-        let enc_a = harness.encoder.clone();
-        let audio_pace = 1000 / audio_frames_per_sec;
-        let audio_handle = ThreadedEncoderHarness::run_audio_thread(
-            enc_a,
-            total_audio_frames,
-            3840,
-            audio_pace,
-            wireless_jitter,
-        );
-
-        let (v_appended, v_dropped, v_errors) = video_handle.join().unwrap();
-        let (a_appended, a_dropped, a_errors) = audio_handle.join().unwrap();
-
-        eprintln!(
-            "65s retina test: video appended={v_appended} dropped={v_dropped} \
-             source_drops={drop_count}, audio appended={a_appended} dropped={a_dropped}"
-        );
-
-        assert!(
-            v_errors.is_empty(),
-            "Video encoding errors in 65s test: {v_errors:?} (appended={v_appended}, dropped={v_dropped})"
-        );
-        assert!(
-            a_errors.is_empty(),
-            "Audio encoding errors in 65s test: {a_errors:?} (appended={a_appended}, dropped={a_dropped})"
-        );
-
-        assert!(
-            v_appended >= video_timestamps.len() as u64 / 2,
-            "Expected at least {} video frames, got {v_appended}",
-            video_timestamps.len() / 2,
-        );
-        assert!(
-            a_appended >= total_audio_frames / 2,
-            "Expected at least {} audio frames, got {a_appended}",
-            total_audio_frames / 2,
-        );
-
-        let finish_ts = Duration::from_secs(recording_secs + 1);
-        let result = harness.encoder.lock().unwrap().finish(Some(finish_ts));
-        assert!(result.is_ok(), "Finish failed: {result:?}");
-
-        let meta = std::fs::metadata(&output).unwrap();
-        assert!(
-            meta.len() > 100_000,
-            "Output file too small for 65s recording: {} bytes",
-            meta.len()
-        );
-
-        let _ = std::fs::remove_file(&output);
-    }
-
-    #[test]
     fn reproduce_user_16364_retina_65s_variable_intervals() {
         let output = test_output_path("user_16364_variable");
         let video = retina_video_config();
@@ -3643,8 +3324,7 @@ mod tests {
         let video = retina_video_config();
         let audio = wireless_audio_config();
 
-        let mut encoder =
-            MP4Encoder::init_instant_mode(output.clone(), video, Some(audio), Some(1248)).unwrap();
+        let mut encoder = MP4Encoder::init(output.clone(), video, Some(audio), Some(1248)).unwrap();
 
         let pool = create_pixel_buffer_pool(2940, 1912);
 
@@ -4060,8 +3740,7 @@ mod tests {
         let video = valid_video_config();
         let audio = wired_audio_config(1680);
 
-        let mut encoder =
-            MP4Encoder::init_instant_mode(output.clone(), video, Some(audio), None).unwrap();
+        let mut encoder = MP4Encoder::init(output.clone(), video, Some(audio), None).unwrap();
 
         let pool = create_pixel_buffer_pool(1920, 1080);
         let frame_a = create_test_video_frame(&pool, 0, 33_333);
@@ -4209,7 +3888,7 @@ mod tests {
         let output = test_output_path("writer_failure_field");
         let video = valid_video_config();
 
-        let mut encoder = MP4Encoder::init_instant_mode(output.clone(), video, None, None).unwrap();
+        let mut encoder = MP4Encoder::init(output.clone(), video, None, None).unwrap();
 
         let pool = create_pixel_buffer_pool(1920, 1080);
 
@@ -4249,8 +3928,7 @@ mod tests {
         let video = valid_video_config();
         let audio = wireless_audio_config();
 
-        let mut encoder =
-            MP4Encoder::init_instant_mode(output.clone(), video, Some(audio), None).unwrap();
+        let mut encoder = MP4Encoder::init(output.clone(), video, Some(audio), None).unwrap();
 
         let pool = create_pixel_buffer_pool(1920, 1080);
         let frame = create_test_video_frame(&pool, 0, 33_333);

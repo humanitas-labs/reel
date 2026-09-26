@@ -72,7 +72,9 @@ fn recovery_error_message(path: &Path, error: RecoveryError) -> String {
 }
 
 fn parse_recording_date(pretty_name: &str) -> Option<NaiveDate> {
-    let date_part = pretty_name.strip_prefix("Cap ")?;
+    let date_part = pretty_name
+        .strip_prefix("Reel ")
+        .or_else(|| pretty_name.strip_prefix("Cap "))?;
     let date_str = date_part.split(" at ").next()?;
     NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
 }
@@ -146,7 +148,7 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
         .state::<crate::FinalizingRecordings>()
         .start_recovering(project)?;
     let app_for_recovery = app.clone();
-    let result = crate::run_finalization_worker(token, move |project| {
+    crate::run_finalization_worker(token, move |project| {
         let path = project.work_path();
         ensure_finalization_storage(path, project.display_path())?;
         let recording = RecoveryManager::inspect_recording(path)
@@ -199,8 +201,7 @@ pub async fn recover_recording(app: AppHandle, project_path: String) -> Result<S
 
         Ok(project_path)
     })
-    .await;
-    result
+    .await
 }
 
 #[tauri::command]

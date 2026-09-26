@@ -4805,7 +4805,7 @@ function SyncOffsetsConfig() {
 							</Show>
 							<Show when={clipConfig(index())?.offsetsAutoCalculated === true}>
 								<p class="text-[11px] text-ed-text-3">
-									Cap calculated these offsets automatically to keep audio in
+									Reel calculated these offsets automatically to keep audio in
 									sync with the video. Adjust them if anything still sounds off.
 								</p>
 							</Show>

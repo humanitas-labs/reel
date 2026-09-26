@@ -50,9 +50,7 @@ async fn profile_startup_stages(
 
     let recording_meta = RecordingMeta::load_for_project(&recording_path)
         .map_err(|e| format!("Failed to load recording meta: {e}"))?;
-    let RecordingMetaInner::Studio(meta) = &recording_meta.inner else {
-        return Err("Cannot edit non-studio recordings".to_string());
-    };
+    let RecordingMetaInner::Studio(meta) = &recording_meta.inner;
     push_stage(&mut stages, "load recording metadata", &mut stage_start);
 
     let project = recording_meta.project_config();

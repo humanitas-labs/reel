@@ -679,9 +679,16 @@ mod tests {
                 let content_w = content_h * 16.0 / 10.0;
                 let w = (content_w + (insets.left + insets.right) * content_h).round() as u32;
                 let h = (content_h * (1.0 + insets.top + insets.bottom)).round() as u32;
-                let rgba =
-                    rasterize_chrome(style, theme, "cap.so", "Cap Recording", w, h, content_h)
-                        .unwrap();
+                let rgba = rasterize_chrome(
+                    style,
+                    theme,
+                    "example.com",
+                    "Reel Recording",
+                    w,
+                    h,
+                    content_h,
+                )
+                .unwrap();
                 image::RgbaImage::from_raw(w, h, rgba)
                     .unwrap()
                     .save(format!("{dir}/{style:?}-{theme:?}.png"))
@@ -699,7 +706,8 @@ mod tests {
             FrameStyle::Macbook,
         ] {
             for theme in [FrameTheme::Light, FrameTheme::Dark] {
-                let rgba = rasterize_chrome(style, theme, "cap.so", "Recording", 640, 420, 360.0);
+                let rgba =
+                    rasterize_chrome(style, theme, "example.com", "Recording", 640, 420, 360.0);
                 let rgba = rgba.expect("chrome should rasterize");
                 assert_eq!(rgba.len(), 640 * 420 * 4);
                 // Something visible must have been drawn.

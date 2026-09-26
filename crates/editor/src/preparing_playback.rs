@@ -281,9 +281,8 @@ fn validate_expected_metadata(
     expected: &cap_project::RecordingMeta,
 ) -> Result<(), String> {
     let mut cleared = source.clone();
-    if let cap_project::RecordingMetaInner::Studio(studio) = &mut cleared.inner
-        && let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut()
-    {
+    let cap_project::RecordingMetaInner::Studio(studio) = &mut cleared.inner;
+    if let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() {
         for segment in &mut inner.segments {
             for track in [&mut segment.mic, &mut segment.system_audio]
                 .into_iter()

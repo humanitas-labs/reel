@@ -171,9 +171,7 @@ fn changed_json_fields(before: &Value, after: &Value) -> Vec<Value> {
 }
 
 fn normalize_empty_legacy_cursors(metadata: &mut RecordingMeta) -> Result<()> {
-    let RecordingMetaInner::Studio(studio) = &mut metadata.inner else {
-        bail!("Current-writer fixture requires Studio metadata");
-    };
+    let RecordingMetaInner::Studio(studio) = &mut metadata.inner;
     let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
         bail!("Current-writer fixture requires indexed Studio metadata");
     };
@@ -1174,7 +1172,7 @@ mod current_writer_snapshot_tests {
     use super::*;
 
     fn legacy_metadata() -> Value {
-        json!({ "platform": "MacOS", "pretty_name": "Writer snapshot test", "sharing": null, "segments": [{ "display": { "path": "content/segments/segment-0/display", "fps": 30, "start_time": 0.0 } }], "cursors": {}, "status": { "status": "NeedsRemux" } })
+        json!({ "platform": "MacOS", "pretty_name": "Writer snapshot test", "segments": [{ "display": { "path": "content/segments/segment-0/display", "fps": 30, "start_time": 0.0 } }], "cursors": {}, "status": { "status": "NeedsRemux" } })
     }
 
     fn fixture(metadata: Value, configuration: Value) -> tempfile::TempDir {

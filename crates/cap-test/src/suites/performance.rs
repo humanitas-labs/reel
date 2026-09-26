@@ -614,9 +614,7 @@ async fn load_fixture(recording_path: &Path) -> Result<FixtureContext> {
         )
     })?;
 
-    let RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner else {
-        bail!("Fixture is not a studio recording");
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner;
 
     let studio_meta = studio_meta.as_ref().clone();
     let project = recording_meta.project_config();

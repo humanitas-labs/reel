@@ -856,7 +856,6 @@ mod tests {
                 platform: None,
                 project_path: directory.path().to_path_buf(),
                 pretty_name: "Preparing projection".into(),
-                sharing: None,
                 inner: RecordingMetaInner::Studio(Box::new(
                     StudioRecordingMeta::MultipleSegments {
                         inner: MultipleSegments {
@@ -866,7 +865,6 @@ mod tests {
                         },
                     },
                 )),
-                upload: None,
             };
             let configuration = ProjectConfiguration {
                 timeline: Some(
@@ -896,9 +894,7 @@ mod tests {
         }
 
         fn metadata(&mut self) -> &mut MultipleSegments {
-            let RecordingMetaInner::Studio(studio) = &mut self.recording.meta.inner else {
-                unreachable!()
-            };
+            let RecordingMetaInner::Studio(studio) = &mut self.recording.meta.inner;
             let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
                 unreachable!()
             };

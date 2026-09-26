@@ -1925,9 +1925,7 @@ async fn generate_export_preview_inner(
     let recording_meta = RecordingMeta::load_for_project(&project_path)
         .map_err(|e| format!("Failed to load recording meta: {e}"))?;
 
-    let cap_project::RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner else {
-        return Err("Cannot preview non-studio recordings".to_string());
-    };
+    let cap_project::RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner;
 
     let mut project_config =
         export_project_config(recording_meta.project_config(), settings.cursor_only);

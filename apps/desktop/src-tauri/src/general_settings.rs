@@ -103,18 +103,18 @@ impl MainWindowRecordingStartBehaviour {
     }
 }
 
-// NOTE: Do not add "Cap Target Select" here — on Windows, WDA_EXCLUDEFROMCAPTURE applied to that
+// NOTE: Do not add "Reel Target Select" here — on Windows, WDA_EXCLUDEFROMCAPTURE applied to that
 // hidden window causes it to reappear as a ghost overlay after recording ends.
 const DEFAULT_EXCLUDED_WINDOW_TITLES: &[&str] = &[
-    "Cap",
-    "Cap Settings",
-    "Cap Recording Controls",
-    "Cap Camera",
-    "Cap Window Capture Occluder",
-    "Cap Capture Area",
-    "Cap Mode Selection",
-    "Cap Recordings Overlay",
-    "Cap Teleprompter",
+    "Reel",
+    "Reel Settings",
+    "Reel Recording Controls",
+    "Reel Camera",
+    "Reel Window Reelture Occluder",
+    "Reel Reelture Area",
+    "Reel Mode Selection",
+    "Reel Recordings Overlay",
+    "Reel Teleprompter",
 ];
 
 pub fn default_excluded_windows() -> Vec<WindowExclusion> {
@@ -265,7 +265,7 @@ fn default_crash_recovery_recording() -> bool {
 
 fn default_transcription_hints() -> Vec<String> {
     vec![
-        "Cap".to_string(),
+        "Reel".to_string(),
         "TypeScript".to_string(),
         "My Brand Name".to_string(),
         "mywebsite.com".to_string(),
@@ -778,11 +778,7 @@ mod tests {
                     assert_eq!(saved["hideDockIcon"], true);
                     assert_eq!(saved["mainWindowPosition"]["x"], 90.0);
                     assert_eq!(saved["mainWindowPosition"]["futurePositionField"], true);
-                    assert_eq!(saved["commercialLicense"]["refresh"], 456.0);
-                    assert_eq!(
-                        saved["commercialLicense"]["futureLicenseField"],
-                        original["commercialLicense"]["futureLicenseField"]
-                    );
+                    assert_eq!(saved["commercialLicense"], original["commercialLicense"]);
                     assert_eq!(saved["futureSetting"], original["futureSetting"]);
                     assert_eq!(saved["excludedWindows"][0], original["excludedWindows"][0]);
                     Ok(())
@@ -904,7 +900,7 @@ mod tests {
     #[test]
     fn appends_missing_default_excluded_windows() {
         let mut excluded_windows = vec![
-            title_exclusion("Cap"),
+            title_exclusion("Reel"),
             WindowExclusion {
                 bundle_identifier: None,
                 owner_name: Some("Preview".to_string()),

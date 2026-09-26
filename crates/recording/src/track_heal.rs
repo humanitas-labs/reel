@@ -98,9 +98,7 @@ pub fn heal_stretched_camera(project_path: &Path) -> anyhow::Result<bool> {
     let mut meta = RecordingMeta::load_for_project(project_path)
         .map_err(|e| anyhow::anyhow!("failed to load recording meta: {e}"))?;
 
-    let RecordingMetaInner::Studio(studio_meta) = &mut meta.inner else {
-        return Ok(false);
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &mut meta.inner;
 
     let StudioRecordingMeta::MultipleSegments { inner } = studio_meta.as_mut() else {
         return Ok(false);
@@ -268,9 +266,7 @@ pub fn heal_stretched_display(project_path: &Path) -> anyhow::Result<bool> {
     let meta = RecordingMeta::load_for_project(project_path)
         .map_err(|e| anyhow::anyhow!("failed to load recording meta: {e}"))?;
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return Ok(false);
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     let StudioRecordingMeta::MultipleSegments { inner } = studio_meta.as_ref() else {
         return Ok(false);

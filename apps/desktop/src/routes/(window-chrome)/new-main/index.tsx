@@ -2810,14 +2810,14 @@ function Page() {
 					role="dialog"
 					aria-label="Clean Studio recording"
 				>
-					<strong>Record without Cap's preview and controls</strong>
+					<strong>Record without Reel's preview and controls</strong>
 					<p class="text-sm">
 						Any selected camera will keep recording as a separate editable
-						track. Cap's preview and controls will hide.
+						track. Reel's preview and controls will hide.
 					</p>
 					<p class="text-sm">
 						Press <strong>{cleanCapture.data?.shortcut}</strong> to start, then
-						use it to stop. Open Cap to pause and show controls.
+						use it to stop. Open Reel to pause and show controls.
 					</p>
 					<button
 						type="button"
@@ -3126,7 +3126,7 @@ function Page() {
 						<Show when={cleanCapture.data?.phase === "paused"}>
 							<div class="mb-3 flex items-center justify-between gap-2 rounded-lg bg-gray-3 p-2 text-sm">
 								<div class="min-w-0">
-									<span>Recording paused. Cap will hide before resuming.</span>
+									<span>Recording paused. Reel will hide before resuming.</span>
 								</div>
 								<button
 									type="button"

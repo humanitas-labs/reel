@@ -250,7 +250,6 @@ impl DeepLinkAction {
                     mode,
                     capture_target,
                     capture_system_audio,
-                    organization_id: None,
                 };
 
                 crate::recording::start_recording(app.clone(), state, inputs)
@@ -435,7 +434,7 @@ mod tests {
                 "camera": { "DeviceID": "camera-1" },
                 "mic_label": "microphone-1",
                 "capture_system_audio": false,
-                "mode": "instant"
+                "mode": "studio"
             }
         })
         .to_string();

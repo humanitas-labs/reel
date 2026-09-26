@@ -13,7 +13,6 @@ pub mod diagnostic_writer;
 pub mod disk_space;
 pub mod export_resources;
 #[cfg(any(target_os = "linux", test))]
-pub mod linux_package;
 #[cfg(target_os = "linux")]
 pub mod linux_recording_stop;
 #[cfg(any(target_os = "linux", test))]

@@ -341,9 +341,7 @@ impl ScreenshotEditorInstances {
                 platform: None,
                 project_path: path.parent().unwrap().to_path_buf(),
                 pretty_name: "Screenshot".to_string(),
-                sharing: None,
                 inner: RecordingMetaInner::Studio(Box::new(studio_meta.clone())),
-                upload: None,
             }
         };
 
@@ -413,10 +411,8 @@ impl ScreenshotEditorInstances {
             preserve_screen_alpha: true,
         };
 
-        let studio_meta = match &recording_meta.inner {
-            RecordingMetaInner::Studio(meta) => meta.clone(),
-            _ => return Err("Invalid recording meta for screenshot".to_string()),
-        };
+        let RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner;
+        let studio_meta = studio_meta.clone();
 
         let constants = RenderVideoConstants::from_shared_device(
             shared,
@@ -970,9 +966,7 @@ pub async fn prewarm_screenshot_renderer() {
         platform: None,
         project_path: std::env::temp_dir(),
         pretty_name: "Prewarm".to_string(),
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(studio_meta.clone())),
-        upload: None,
     };
 
     let options = cap_rendering::RenderOptions {
@@ -1684,9 +1678,7 @@ pub async fn render_screenshot_png(instance: &ScreenshotEditorInstance) -> Resul
             platform: None,
             project_path: path.parent().unwrap_or(&path).to_path_buf(),
             pretty_name: "Screenshot".to_string(),
-            sharing: None,
             inner: RecordingMetaInner::Studio(Box::new(studio_meta)),
-            upload: None,
         }
     };
 
@@ -1755,10 +1747,8 @@ pub async fn render_screenshot_png(instance: &ScreenshotEditorInstance) -> Resul
         preserve_screen_alpha: true,
     };
 
-    let studio_meta = match &recording_meta.inner {
-        RecordingMetaInner::Studio(meta) => meta.clone(),
-        _ => return Err("Invalid recording meta for screenshot".to_string()),
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &recording_meta.inner;
+    let studio_meta = studio_meta.clone();
 
     let constants = RenderVideoConstants::from_shared_device(
         shared,

@@ -57,8 +57,8 @@ use audio::AppSounds;
 use camera::{CameraPreviewManager, CameraPreviewSender, CameraPreviewState};
 use cap_editor::{EditorInstance, EditorState};
 use cap_project::{
-    InstantRecordingMeta, ProjectConfiguration, RecordingMeta, RecordingMetaInner,
-    StudioRecordingMeta, StudioRecordingStatus, XY, ZoomSegment,
+    ProjectConfiguration, RecordingMeta, RecordingMetaInner, StudioRecordingMeta,
+    StudioRecordingStatus, XY, ZoomSegment,
 };
 use cap_recording::{
     RecordingMode,
@@ -116,7 +116,6 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_notification::{NotificationExt, PermissionState};
-use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_shell::ShellExt;
 use tauri_specta::Event;
 use tokio::sync::{Mutex, RwLock, oneshot, watch};
@@ -130,8 +129,7 @@ use crate::recording::start_recording;
 use crate::recording_settings::{RecordingSettingsStore, RecordingTargetMode};
 use exit_shutdown::{
     AppExitAction, ExitBlocked, ExitRequestDecision, app_exit_action, collect_device_inventory,
-    handle_exit_requested, prepare_then_begin_exit, recording_start_allowed, run_while_active,
-    with_idle_recording_state,
+    handle_exit_requested, recording_start_allowed, run_while_active, with_idle_recording_state,
 };
 use futures::FutureExt;
 use std::panic::AssertUnwindSafe;
@@ -1375,7 +1373,6 @@ pub struct App {
     camera_in_use: bool,
     camera_cleanup_done: bool,
     camera_feed: ActorRef<feeds::camera::CameraFeed>,
-    logs_dir: PathBuf,
     disconnected_inputs: HashSet<RecordingInputKind>,
     was_camera_only_recording: bool,
 }
@@ -3430,10 +3427,8 @@ fn with_idle_app_for_title_flush<T>(
             if has_pending_finalizations(&recordings) {
                 return Err(ExitBlocked::FinalizationActive);
             }
-            if include_exports {
-                if export::export_session_active() {
-                    return Err(ExitBlocked::ExportActive);
-                }
+            if include_exports && export::export_session_active() {
+                return Err(ExitBlocked::ExportActive);
             }
             Ok(())
         },
@@ -3456,19 +3451,6 @@ fn begin_app_exit_if_idle(app: &AppHandle, restarting: bool) -> Result<bool, Exi
     })
 }
 
-pub(crate) fn prepare_app_exit(
-    app: &AppHandle,
-    prepare: impl FnOnce() -> Result<(), String>,
-) -> Result<(), String> {
-    let exit_state = app
-        .try_state::<AppExitState>()
-        .ok_or(ExitBlocked::StateUnavailable.message())?;
-    with_idle_app(app, true, || {
-        prepare_then_begin_exit(prepare, || exit_state.begin())
-    })
-    .map_err(|reason| reason.message().to_string())?
-}
-
 fn show_exit_blocked(app: &AppHandle, reason: ExitBlocked) {
     warn!(
         ?reason,
@@ -3476,7 +3458,7 @@ fn show_exit_blocked(app: &AppHandle, reason: ExitBlocked) {
     );
     app.dialog()
         .message(reason.message())
-        .title("Cap is still busy")
+        .title("Reel is still busy")
         .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
         .show(|_| {});
 }
@@ -3579,7 +3561,7 @@ fn restart_app(app: AppHandle) -> Result<(), String> {
             app.request_restart();
             Ok(())
         }
-        Ok(false) => Err("Cap is already shutting down.".into()),
+        Ok(false) => Err("Reel is already shutting down.".into()),
         Err(reason) => Err(reason.message().into()),
     }
 }
@@ -4687,9 +4669,6 @@ async fn get_video_metadata(path: PathBuf) -> Result<VideoRecordingMetadata, Str
     }
 
     let display_paths = match &recording_meta.inner {
-        RecordingMetaInner::Instant(_) => {
-            vec![path.join("content/output.mp4")]
-        }
         RecordingMetaInner::Studio(meta) => {
             let status = meta.status();
             if let StudioRecordingStatus::Failed { .. } = status {
@@ -5048,16 +5027,12 @@ pub struct RecordingMetaWithMetadata {
 impl RecordingMetaWithMetadata {
     fn new(inner: RecordingMeta, sort_time_millis: f64) -> Self {
         Self {
-            mode: match &inner.inner {
-                RecordingMetaInner::Studio(_) => RecordingMode::Studio,
-                RecordingMetaInner::Instant(_) => RecordingMode::Studio,
-            },
+            mode: RecordingMode::Studio,
             clip_count: match &inner.inner {
                 RecordingMetaInner::Studio(meta) => match &**meta {
                     StudioRecordingMeta::MultipleSegments { inner } => inner.segments.len() as u32,
                     StudioRecordingMeta::SingleSegment { .. } => 1,
                 },
-                RecordingMetaInner::Instant(_) => 1,
             },
             status: match &inner.inner {
                 RecordingMetaInner::Studio(meta) => match &**meta {
@@ -5067,17 +5042,6 @@ impl RecordingMetaWithMetadata {
                         .unwrap_or(StudioRecordingStatus::Complete),
                     StudioRecordingMeta::SingleSegment { .. } => StudioRecordingStatus::Complete,
                 },
-                RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { .. }) => {
-                    StudioRecordingStatus::InProgress
-                }
-                RecordingMetaInner::Instant(InstantRecordingMeta::Failed { error }) => {
-                    StudioRecordingStatus::Failed {
-                        error: error.clone(),
-                    }
-                }
-                RecordingMetaInner::Instant(InstantRecordingMeta::Complete { .. }) => {
-                    StudioRecordingStatus::Complete
-                }
             },
             sort_time_millis,
             inner,
@@ -6197,7 +6161,7 @@ fn specta_builder() -> tauri_specta::Builder {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
+pub async fn run(recording_logging_handle: LoggingHandle) {
     let startup = startup::Startup::default();
     ffmpeg::init()
         .map_err(|e| {
@@ -6477,7 +6441,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                     camera_in_use: false,
                     camera_cleanup_done: false,
                     camera_feed,
-                    logs_dir: logs_dir.clone(),
                     disconnected_inputs: HashSet::new(),
                     was_camera_only_recording: false,
                 })));
@@ -6583,7 +6546,6 @@ pub async fn run(recording_logging_handle: LoggingHandle, logs_dir: PathBuf) {
                         }),
                         mode: event.mode,
                         capture_system_audio: settings.system_audio,
-                        organization_id: settings.organization_id,
                     }
                 })
                 .await;
@@ -7164,11 +7126,11 @@ impl Drop for StartupOpenGuard {
 fn queue_macos_startup_urls(app: &AppHandle, urls: Vec<tauri::Url>) -> Result<(), String> {
     let gate = app
         .try_state::<StartupOpenGate>()
-        .ok_or_else(|| "Cap startup is not ready to receive projects".to_string())?;
+        .ok_or_else(|| "Reel startup is not ready to receive projects".to_string())?;
     let dispatch = gate
         .0
         .lock()
-        .map_err(|_| "Cap startup file-open state is unavailable".to_string())?
+        .map_err(|_| "Reel startup file-open state is unavailable".to_string())?
         .request(urls)?;
     if let Some(dispatch) = dispatch {
         dispatch_macos_startup_urls(app, dispatch);
@@ -7991,12 +7953,12 @@ fn open_project_from_path(path: &Path, app: AppHandle) -> Result<(), String> {
     {
         let gate = app
             .try_state::<StartupOpenGate>()
-            .ok_or_else(|| "Cap startup is not ready to receive projects".to_string())?;
+            .ok_or_else(|| "Reel startup is not ready to receive projects".to_string())?;
         let ready = {
             let queue = gate
                 .0
                 .lock()
-                .map_err(|_| "Cap startup file-open state is unavailable".to_string())?;
+                .map_err(|_| "Reel startup file-open state is unavailable".to_string())?;
             !queue.cancelled && queue.ready
         };
         if !ready {
@@ -8030,16 +7992,6 @@ fn open_project_from_path(path: &Path, app: AppHandle) -> Result<(), String> {
                     warn!(%error, "Could not show the requested project editor");
                 }
             });
-        }
-        RecordingMetaInner::Instant(_) => {
-            let mp4_path = path.join("content/output.mp4");
-
-            if mp4_path.exists() && mp4_path.is_file() {
-                let _ = app
-                    .opener()
-                    .open_path(mp4_path.to_str().unwrap_or_default(), None::<String>);
-                hide_main_window(&app);
-            }
         }
     }
 

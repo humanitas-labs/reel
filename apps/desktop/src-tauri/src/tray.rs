@@ -6,7 +6,7 @@ use crate::{
 };
 use cap_recording::RecordingMode;
 
-use cap_project::{RecordingMeta, RecordingMetaInner};
+use cap_project::RecordingMeta;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     path::PathBuf,
@@ -21,7 +21,6 @@ use tauri::{
     tray::{TrayIcon, TrayIconBuilder},
 };
 use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
 
 const PREVIOUS_ITEM_PREFIX: &str = "previous_item_";
@@ -103,10 +102,6 @@ impl TryFrom<MenuId> for TrayItem {
 #[derive(Debug, Clone)]
 enum PreviousItemType {
     StudioRecording,
-    InstantRecording {
-        #[allow(dead_code)]
-        link: Option<String>,
-    },
     Screenshot,
 }
 
@@ -219,13 +214,7 @@ fn load_single_item(
     } else {
         let thumb = path.join("screenshots/display.jpg");
         let thumb_path = if thumb.exists() { Some(thumb) } else { None };
-        let item_type = match &meta.inner {
-            RecordingMetaInner::Studio(_) => PreviousItemType::StudioRecording,
-            RecordingMetaInner::Instant(_) => PreviousItemType::InstantRecording {
-                link: meta.sharing.as_ref().map(|s| s.link.clone()),
-            },
-        };
-        (thumb_path, item_type)
+        (thumb_path, PreviousItemType::StudioRecording)
     };
 
     let (thumbnail, thumbnail_width, thumbnail_height) = if load_thumbnail {
@@ -356,7 +345,6 @@ fn create_previous_submenu(
 
         let type_indicator = match &item.item_type {
             PreviousItemType::StudioRecording => "🎬 ",
-            PreviousItemType::InstantRecording { .. } => "⚡ ",
             PreviousItemType::Screenshot => "📷 ",
         };
         let display_title = format!("{type_indicator}{title}");
@@ -627,35 +615,17 @@ fn handle_previous_item_click(app: &AppHandle, path_str: &str) {
         return;
     }
 
-    let meta = match RecordingMeta::load_for_project(&path) {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::error!("Failed to load recording meta for previous item: {e}");
-            return;
-        }
-    };
-
-    match &meta.inner {
-        RecordingMetaInner::Studio(_) => {
-            let app = app.clone();
-            let project_path = path.clone();
-            tokio::spawn(async move {
-                let _ = ShowCapWindow::Editor { project_path }.show(&app).await;
-            });
-        }
-        RecordingMetaInner::Instant(_) => {
-            if let Some(sharing) = &meta.sharing {
-                let _ = app.opener().open_url(&sharing.link, None::<String>);
-            } else {
-                let mp4_path = path.join("content/output.mp4");
-                if mp4_path.exists() {
-                    let _ = app
-                        .opener()
-                        .open_path(mp4_path.to_str().unwrap_or_default(), None::<String>);
-                }
-            }
-        }
+    if let Err(e) = RecordingMeta::load_for_project(&path) {
+        tracing::error!("Failed to load recording meta for previous item: {e}");
+        return;
     }
+
+    let app = app.clone();
+    tokio::spawn(async move {
+        let _ = ShowCapWindow::Editor { project_path: path }
+            .show(&app)
+            .await;
+    });
 }
 
 pub fn get_tray_icon() -> &'static [u8] {

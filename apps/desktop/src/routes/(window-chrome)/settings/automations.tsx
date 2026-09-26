@@ -198,7 +198,8 @@ const TEMPLATES: Template[] = [
 	{
 		id: "ocr-screenshot",
 		name: "Pull the text out of screenshots",
-		description: "Cap reads the text in your screenshot and copies it for you.",
+		description:
+			"Reel reads the text in your screenshot and copies it for you.",
 		icon: IconLucideScanText,
 		build: () =>
 			buildRule({
@@ -450,7 +451,7 @@ export default function AutomationsSettings() {
 			<SettingsPageContent>
 				<Section
 					title="Automations"
-					description="Run actions automatically when something happens in Cap. Rules are shared with the Cap CLI."
+					description="Run actions automatically when something happens in Reel. Rules are shared with the Reel CLI."
 				>
 					<Suspense
 						fallback={<div class="h-24 rounded-xl bg-gray-3 animate-pulse" />}

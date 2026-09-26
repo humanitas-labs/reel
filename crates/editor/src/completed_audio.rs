@@ -167,8 +167,6 @@ pub(crate) mod tests {
             platform: None,
             project_path: "fixture.cap".into(),
             pretty_name: "Audio handoff fixture".into(),
-            sharing: None,
-            upload: None,
             inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::MultipleSegments {
                 inner: MultipleSegments {
                     segments: (0..2)
@@ -208,9 +206,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn segments_mut(meta: &mut RecordingMeta) -> &mut Vec<MultipleSegment> {
-        let RecordingMetaInner::Studio(studio) = &mut meta.inner else {
-            panic!()
-        };
+        let RecordingMetaInner::Studio(studio) = &mut meta.inner;
         let StudioRecordingMeta::MultipleSegments { inner } = studio.as_mut() else {
             panic!()
         };

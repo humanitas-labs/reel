@@ -263,7 +263,7 @@ impl AutomationHost for CliAutomationHost {
             .as_ref()
             .ok_or("No project path for preset")?;
 
-        let store = load_desktop_store_value().ok_or("Cap Desktop store not found")?;
+        let store = load_desktop_store_value().ok_or("Reel Desktop store not found")?;
         let presets = store
             .get("presets")
             .and_then(|p| p.get("presets"))
@@ -397,7 +397,6 @@ pub async fn run_recording_finished(project_path: &Path, mode: AutomationRecordi
 
     let trigger = match mode {
         AutomationRecordingMode::Studio => Trigger::StudioRecordingFinished,
-        AutomationRecordingMode::Instant => return,
     };
 
     let ctx = TriggerContext::new()

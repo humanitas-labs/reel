@@ -125,9 +125,7 @@ async fn main() -> Result<()> {
         platform: None,
         project_path: PathBuf::new(),
         pretty_name: "Background benchmark".into(),
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(meta.clone())),
-        upload: None,
     };
     let screen_size = XY::new(1280, 720);
     let constants = RenderVideoConstants::new_with_options(

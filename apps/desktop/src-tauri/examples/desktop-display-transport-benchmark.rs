@@ -112,9 +112,7 @@ async fn load_recording(
     let recording_meta = RecordingMeta::load_for_project(recording_path)
         .map_err(|e| format!("Failed to load recording meta: {e}"))?;
 
-    let RecordingMetaInner::Studio(meta) = &recording_meta.inner else {
-        return Err("Not a studio recording".to_string());
-    };
+    let RecordingMetaInner::Studio(meta) = &recording_meta.inner;
     let meta = meta.clone();
     let mut project = recording_meta.project_config();
 

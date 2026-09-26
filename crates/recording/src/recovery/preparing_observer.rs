@@ -470,7 +470,6 @@ mod tests {
             platform: Some(Platform::default()),
             project_path: path.to_path_buf(),
             pretty_name: "Preparing observer fixture".to_string(),
-            sharing: None,
             inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::MultipleSegments {
                 inner: MultipleSegments {
                     segments: vec![segment()],
@@ -478,11 +477,8 @@ mod tests {
                     status: Some(StudioRecordingStatus::NeedsRemux),
                 },
             })),
-            upload: None,
         };
-        let RecordingMetaInner::Studio(studio) = &metadata.inner else {
-            unreachable!();
-        };
+        let RecordingMetaInner::Studio(studio) = &metadata.inner;
         CompletedRecording {
             project_path: path.to_path_buf(),
             meta: studio.as_ref().clone(),

@@ -13,18 +13,18 @@ impl ExitBlocked {
     pub(crate) fn message(self) -> &'static str {
         match self {
             Self::StateUnavailable => {
-                "Cap could not confirm that recording has finished. Wait for any recording to finish, then try again."
+                "Reel could not confirm that recording has finished. Wait for any recording to finish, then try again."
             }
             Self::RecordingActive => {
-                "Finish or cancel your recording before quitting or restarting Cap. If you already pressed Stop, wait for it to finish."
+                "Finish or cancel your recording before quitting or restarting Reel. If you already pressed Stop, wait for it to finish."
             }
             Self::FinalizationActive => {
-                "Cap is still saving your recording. Wait for it to finish before quitting or restarting."
+                "Reel is still saving your recording. Wait for it to finish before quitting or restarting."
             }
             Self::ExportActive => {
-                "Wait for your export to finish before quitting or restarting Cap."
+                "Wait for your export to finish before quitting or restarting Reel."
             }
-            Self::AlreadyExiting => "Cap is already shutting down.",
+            Self::AlreadyExiting => "Reel is already shutting down.",
         }
     }
 }
@@ -43,21 +43,9 @@ pub(crate) fn with_idle_recording_state<T, R>(
 
 pub(crate) fn recording_start_allowed(is_exiting: bool) -> Result<(), &'static str> {
     if is_exiting {
-        Err("Cap is shutting down. Recording has not started.")
+        Err("Reel is shutting down. Recording has not started.")
     } else {
         Ok(())
-    }
-}
-
-pub(crate) fn prepare_then_begin_exit(
-    prepare: impl FnOnce() -> Result<(), String>,
-    begin: impl FnOnce() -> bool,
-) -> Result<(), String> {
-    prepare()?;
-    if begin() {
-        Ok(())
-    } else {
-        Err(ExitBlocked::AlreadyExiting.message().into())
     }
 }
 

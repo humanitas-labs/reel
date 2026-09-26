@@ -118,7 +118,6 @@ function InProgressRecordingInner() {
 		string | null
 	>(null);
 	let pauseRequest: object | undefined;
-	const [degradedReason, setDegradedReason] = createSignal<string | null>(null);
 	const [issuePanelVisible, setIssuePanelVisible] = createSignal(false);
 	const [issueKey, setIssueKey] = createSignal("");
 	const [cameraWindowOpen, setCameraWindowOpen] = createSignal(false);
@@ -193,8 +192,6 @@ function InProgressRecordingInner() {
 		if (failure) issues.push(failure);
 		const controlError = pauseError();
 		if (controlError) issues.push(controlError);
-		const degraded = degradedReason();
-		if (degraded) issues.push(degraded);
 		const nativeError = cleanCapture.data?.error;
 		if (nativeError) issues.push(nativeError);
 		const localError = stopError();
@@ -250,7 +247,6 @@ function InProgressRecordingInner() {
 				setDisconnectedInputs({ microphone: false, camera: false });
 				resetStopNotice();
 				setRecordingFailure(null);
-				setDegradedReason(null);
 				setPauseResumes([]);
 				setStopRequested(false);
 				setState({
@@ -268,7 +264,6 @@ function InProgressRecordingInner() {
 				setDisconnectedInputs({ microphone: false, camera: false });
 				resetStopNotice();
 				setRecordingFailure(null);
-				setDegradedReason(null);
 				setPauseResumes([]);
 				setStopRequested(false);
 				// This window is reused across recordings, so `start`/`time` still
@@ -311,22 +306,12 @@ function InProgressRecordingInner() {
 			case "Failed":
 				setRecordingFailure(payload.error);
 				break;
-			case "Degraded": {
-				const p = payload as { variant: "Degraded"; reason: string };
-				setDegradedReason(p.reason);
-				break;
-			}
-			case "Recovered":
-				setDegradedReason(null);
-				break;
 		}
 	});
 
 	// A recording can end outside this window: the main window's stop button,
 	// the tray, a global shortcut, or a mid-recording failure. The switch above
-	// never resets state for those (RecordingEvent::Stopped exists but comes
-	// from a racing wait-actor and can land mid-restart, so it is deliberately
-	// not handled). RecordingStopped is only emitted after the recording state
+	// never resets state for those. RecordingStopped is only emitted after the recording state
 	// clears and strictly before any next recording can start, making it the
 	// safe reset signal — without it this reused window keeps ticking a phantom
 	// session that poisons the next recording's elapsed-time checks.
@@ -362,7 +347,6 @@ function InProgressRecordingInner() {
 			setStartingDismissed(false);
 			setDisconnectedInputs({ microphone: false, camera: false });
 			setRecordingFailure(null);
-			setDegradedReason(null);
 			setPauseResumes([]);
 			setStopRequested(false);
 			if (recording.status === "recording") {
@@ -381,7 +365,6 @@ function InProgressRecordingInner() {
 			setStartingDismissed(false);
 			setDisconnectedInputs({ microphone: false, camera: false });
 			setRecordingFailure(null);
-			setDegradedReason(null);
 			setPauseResumes([]);
 			setStart(Date.now());
 			setTime(Date.now());

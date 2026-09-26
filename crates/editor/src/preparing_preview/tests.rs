@@ -99,10 +99,7 @@ fn input_metadata_must_match_bound_decoder_timing() {
     let directory = tempfile::tempdir().unwrap();
     for changed in ["fps", "start_time", "missing_start"] {
         let (mut input, _) = input(directory.path());
-        let cap_project::RecordingMetaInner::Studio(metadata) = &mut input.recording_meta.inner
-        else {
-            unreachable!()
-        };
+        let cap_project::RecordingMetaInner::Studio(metadata) = &mut input.recording_meta.inner;
         let cap_project::StudioRecordingMeta::MultipleSegments { inner } = metadata.as_mut() else {
             unreachable!()
         };

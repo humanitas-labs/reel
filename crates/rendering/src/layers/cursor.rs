@@ -314,7 +314,6 @@ impl CursorLayer {
                     } => cursors.get(cursor_id).and_then(|v| v.shape),
                     _ => None,
                 },
-                _ => None,
             }
         };
 

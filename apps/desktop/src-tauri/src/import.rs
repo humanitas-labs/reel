@@ -6,10 +6,10 @@ use cap_enc_ffmpeg::{
 };
 use cap_media_info::{AudioInfo, FFRational, Pixel, VideoInfo, ensure_even};
 use cap_project::{
-    AudioMeta, ClipConfiguration, CursorEvents, CursorMeta, Cursors, InstantRecordingMeta,
-    MultipleSegment, MultipleSegments, Platform, ProjectConfiguration, RecordingMeta,
-    RecordingMetaInner, SingleSegment, StudioRecordingMeta, StudioRecordingStatus,
-    TimelineConfiguration, TimelineSegment, VideoMeta, XY,
+    AudioMeta, ClipConfiguration, CursorEvents, CursorMeta, Cursors, MultipleSegment,
+    MultipleSegments, Platform, ProjectConfiguration, RecordingMeta, RecordingMetaInner,
+    SingleSegment, StudioRecordingMeta, StudioRecordingStatus, TimelineConfiguration,
+    TimelineSegment, VideoMeta, XY,
 };
 use ffmpeg::{
     ChannelLayout,
@@ -271,9 +271,7 @@ fn same_project_path(a: &Path, b: &Path) -> bool {
 }
 
 fn ensure_multiple_segments(meta: &mut RecordingMeta) -> Result<&mut MultipleSegments, String> {
-    let RecordingMetaInner::Studio(studio_meta) = &mut meta.inner else {
-        return Err("Instant mode recordings cannot be edited".to_string());
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &mut meta.inner;
 
     if let StudioRecordingMeta::SingleSegment { segment } = studio_meta.as_ref() {
         let segment = segment.clone();
@@ -1433,7 +1431,6 @@ pub async fn start_video_import(app: AppHandle, source_path: PathBuf) -> Result<
         platform: Some(Platform::default()),
         project_path: project_path.clone(),
         pretty_name: project_name.clone(),
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::MultipleSegments {
             inner: MultipleSegments {
                 segments: vec![MultipleSegment {
@@ -1454,7 +1451,6 @@ pub async fn start_video_import(app: AppHandle, source_path: PathBuf) -> Result<
                 status: Some(StudioRecordingStatus::InProgress),
             },
         })),
-        upload: None,
     };
 
     initial_meta
@@ -1526,7 +1522,6 @@ pub async fn start_video_import(app: AppHandle, source_path: PathBuf) -> Result<
                     platform: Some(Platform::default()),
                     project_path: project_path.clone(),
                     pretty_name: project_name,
-                    sharing: None,
                     inner: RecordingMetaInner::Studio(Box::new(
                         StudioRecordingMeta::MultipleSegments {
                             inner: MultipleSegments {
@@ -1551,7 +1546,6 @@ pub async fn start_video_import(app: AppHandle, source_path: PathBuf) -> Result<
                             },
                         },
                     )),
-                    upload: None,
                 };
 
                 if let Err(e) = meta.save_for_project() {
@@ -1765,28 +1759,13 @@ async fn append_mp4_to_editor_project(
 }
 
 async fn append_cap_project_to_editor_project(
-    app: AppHandle,
     target_project_path: PathBuf,
     source_project_path: PathBuf,
 ) -> Result<usize, String> {
     let source_meta = RecordingMeta::load_for_project(&source_project_path)
         .map_err(|e| format!("Failed to load source project metadata: {e}"))?;
 
-    let RecordingMetaInner::Studio(source_studio_meta) = &source_meta.inner else {
-        return match &source_meta.inner {
-            RecordingMetaInner::Instant(InstantRecordingMeta::Complete { .. }) => {
-                append_mp4_to_editor_project(app, target_project_path, source_meta.output_path())
-                    .await
-            }
-            RecordingMetaInner::Instant(InstantRecordingMeta::InProgress { .. }) => {
-                Err("Source Cap project is still recording".to_string())
-            }
-            RecordingMetaInner::Instant(InstantRecordingMeta::Failed { error }) => {
-                Err(format!("Source Cap project failed: {error}"))
-            }
-            RecordingMetaInner::Studio(_) => unreachable!(),
-        };
-    };
+    let RecordingMetaInner::Studio(source_studio_meta) = &source_meta.inner;
 
     let source_segments = studio_segments_for_import(source_studio_meta);
     if source_segments.is_empty() {
@@ -1905,9 +1884,9 @@ pub async fn add_existing_recording_to_editor(
         append_mp4_to_editor_project(app, target_project_path, source_path).await?
     } else if is_cap_project_path(&source_path) {
         crate::wait_for_recording_ready(&app, &source_path).await?;
-        append_cap_project_to_editor_project(app, target_project_path, source_path).await?
+        append_cap_project_to_editor_project(target_project_path, source_path).await?
     } else {
-        return Err("Select an MP4 file or a Cap project folder".to_string());
+        return Err("Select an MP4 file or a Reel project folder".to_string());
     };
     let imported_count =
         u32::try_from(imported_count).map_err(|_| "Too many recordings imported".to_string())?;
@@ -2019,9 +1998,7 @@ pub async fn start_image_import(app: AppHandle, source_path: PathBuf) -> Result<
         platform: Some(Platform::default()),
         project_path: project_path.clone(),
         pretty_name: project_name,
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(StudioRecordingMeta::SingleSegment { segment })),
-        upload: None,
     };
 
     meta.save_for_project()
@@ -2052,14 +2029,8 @@ pub async fn check_import_ready(project_path: PathBuf) -> Result<bool, String> {
         }
     };
 
-    let is_complete = match &meta.inner {
-        RecordingMetaInner::Studio(studio) => {
-            matches!(studio.status(), StudioRecordingStatus::Complete)
-        }
-        RecordingMetaInner::Instant(instant) => {
-            matches!(instant, InstantRecordingMeta::Complete { .. })
-        }
-    };
+    let RecordingMetaInner::Studio(studio) = &meta.inner;
+    let is_complete = matches!(studio.status(), StudioRecordingStatus::Complete);
 
     if !is_complete {
         debug!("check_import_ready: not complete yet");

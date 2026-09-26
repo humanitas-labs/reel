@@ -38,7 +38,6 @@ import {
 	normalizeBackgroundBlurMode,
 } from "~/components/CameraPreviewChrome";
 import { generalSettingsStore } from "~/store";
-import { cameraPresentationInput } from "~/utils/camera-presentation";
 import { createTauriEventListener } from "~/utils/createEventListener";
 import { createCameraMutation, revealRecordingWindow } from "~/utils/queries";
 import {
@@ -404,11 +403,8 @@ function LegacyCameraPreviewPage(props: {
 		}
 	});
 
-	let layoutRevision = 0;
-	let previewStateSync: Promise<unknown> = Promise.resolve();
 	createEffect(() => {
-		layoutRevision = (layoutRevision + 1) >>> 0;
-		previewStateSync = commands.setCameraPreviewState({
+		const previewStateSync = commands.setCameraPreviewState({
 			size: state.size,
 			shape: state.shape,
 			mirrored: state.mirrored,
@@ -468,7 +464,6 @@ function LegacyCameraPreviewPage(props: {
 				Math.abs(currentSize.width - rect.width) > 1 ||
 				Math.abs(currentSize.height - rect.height) > 1
 			) {
-				layoutRevision = (layoutRevision + 1) >>> 0;
 				setExternalContainerSize({ width: rect.width, height: rect.height });
 			}
 		};
@@ -843,100 +838,6 @@ function LegacyCameraPreviewPage(props: {
 			return { width, height, size, windowWidth, windowHeight };
 		},
 	);
-
-	onMount(() => {
-		let disposed = false;
-		let requestRevision = 0;
-		const unlisten = events.cameraPresentationRequested.listen(
-			async ({ payload }) => {
-				const request = ++requestRevision;
-				try {
-					if (
-						type() !== "linux" ||
-						isCameraOnlyMode() ||
-						!containerRef ||
-						!hasFrame()
-					) {
-						throw new Error(
-							"Wait for the selected camera preview before recording",
-						);
-					}
-					const sync = previewStateSync;
-					await sync;
-					const deadline = performance.now() + 900;
-					while (_windowSize.loading) {
-						if (performance.now() >= deadline)
-							throw new Error("Camera layout did not settle");
-						await new Promise<void>((resolve) => setTimeout(resolve, 16));
-					}
-					const measuredRevision = layoutRevision;
-					await Promise.race([
-						new Promise<void>((resolve) =>
-							requestAnimationFrame(() =>
-								requestAnimationFrame(() => resolve()),
-							),
-						),
-						new Promise<never>((_, reject) =>
-							setTimeout(
-								() =>
-									reject(new Error("Camera window did not render its layout")),
-								500,
-							),
-						),
-					]);
-					if (disposed || request !== requestRevision) return;
-					if (
-						sync !== previewStateSync ||
-						measuredRevision !== layoutRevision ||
-						_windowSize.loading
-					) {
-						throw new Error(
-							"Camera appearance changed while measuring; start again",
-						);
-					}
-					const rect = containerRef.getBoundingClientRect();
-					const clip = getComputedStyle(containerRef);
-					const input = cameraPresentationInput(
-						{
-							viewportWidth: window.innerWidth,
-							viewportHeight: window.innerHeight,
-							left: rect.left,
-							top: rect.top,
-							width: rect.width,
-							height: rect.height,
-							cornerRadii: [
-								clip.borderTopLeftRadius,
-								clip.borderTopRightRadius,
-								clip.borderBottomRightRadius,
-								clip.borderBottomLeftRadius,
-							],
-						},
-						{
-							size: state.size,
-							shape: state.shape,
-							mirrored: state.mirrored,
-							background_blur: normalizeBackgroundBlurMode(
-								state.backgroundBlur,
-							),
-						},
-						measuredRevision,
-					);
-					await commands.submitCameraPresentation(payload.nonce, input, null);
-				} catch (error) {
-					if (!disposed && request === requestRevision) {
-						await commands
-							.submitCameraPresentation(payload.nonce, null, String(error))
-							.catch(() => {});
-					}
-				}
-			},
-		);
-		onCleanup(() => {
-			disposed = true;
-			requestRevision += 1;
-			void unlisten.then((remove) => remove());
-		});
-	});
 
 	const initialGeneration = (
 		window.__CAP__ as { cleanCaptureGeneration?: number } | undefined

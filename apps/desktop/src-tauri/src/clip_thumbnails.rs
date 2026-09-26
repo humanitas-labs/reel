@@ -23,9 +23,7 @@ pub async fn get_clip_thumbnail(
     let project_path = editor_instance.project_path.clone();
     let meta = editor_instance.meta();
 
-    let RecordingMetaInner::Studio(studio) = &meta.inner else {
-        return Err("Clip thumbnails are only available for studio recordings".to_string());
-    };
+    let RecordingMetaInner::Studio(studio) = &meta.inner;
 
     let display_path = match studio.as_ref() {
         StudioRecordingMeta::SingleSegment { segment } => meta.path(&segment.display.path),

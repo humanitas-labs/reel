@@ -609,9 +609,7 @@ fn validate_av_sync(meta: &RecordingMeta) -> AVSyncValidation {
         segments: vec![],
     };
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return result;
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     if let StudioRecordingMeta::MultipleSegments { inner } = studio_meta.as_ref() {
         for (idx, segment) in inner.segments.iter().enumerate() {
@@ -674,9 +672,7 @@ fn validate_camera_output(meta: &RecordingMeta, fragmented: bool) -> CameraOutpu
         ..Default::default()
     };
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return result;
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     if let StudioRecordingMeta::MultipleSegments { inner } = studio_meta.as_ref() {
         for (idx, segment) in inner.segments.iter().enumerate() {
@@ -743,9 +739,7 @@ fn validate_segment_timing(meta: &RecordingMeta) -> SegmentTimingValidation {
         issues: vec![],
     };
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return result;
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     if let StudioRecordingMeta::MultipleSegments { inner } = studio_meta.as_ref() {
         for (idx, segment) in inner.segments.iter().enumerate() {
@@ -807,7 +801,6 @@ fn get_segment_count(meta: &RecordingMeta) -> usize {
             StudioRecordingMeta::SingleSegment { .. } => 1,
             StudioRecordingMeta::MultipleSegments { inner } => inner.segments.len(),
         },
-        RecordingMetaInner::Instant(_) => 1,
     }
 }
 
@@ -972,9 +965,7 @@ async fn analyze_frame_rate(
 
     let expected_durations = scenario.segment_durations();
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return result;
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     match studio_meta.as_ref() {
         StudioRecordingMeta::SingleSegment { segment } => {
@@ -1165,9 +1156,7 @@ async fn analyze_audio_timing(
 
     let expected_durations = scenario.segment_durations();
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        return result;
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     match studio_meta.as_ref() {
         StudioRecordingMeta::SingleSegment { segment } => {
@@ -1338,7 +1327,6 @@ async fn validate_duration(
                 }
             }
         },
-        RecordingMetaInner::Instant(_) => {}
     }
 
     result.total_ok = result.actual_total.abs_diff(result.expected_total) <= DURATION_TOLERANCE;
@@ -1447,14 +1435,12 @@ async fn execute_recording(
 
     let completed = handle.stop().await?;
 
-    let pretty_name = Local::now().format("Cap %Y-%m-%d at %H.%M.%S").to_string();
+    let pretty_name = Local::now().format("Reel %Y-%m-%d at %H.%M.%S").to_string();
     let meta = RecordingMeta {
         platform: Some(Platform::default()),
         project_path: recording_dir.clone(),
         pretty_name,
-        sharing: None,
         inner: RecordingMetaInner::Studio(Box::new(completed.meta)),
-        upload: None,
     };
     meta.save_for_project()
         .map_err(|e| anyhow::anyhow!("Failed to save recording metadata: {:?}", e))?;

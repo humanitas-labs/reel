@@ -92,7 +92,6 @@ pub enum CaptureTargetKind {
 #[serde(rename_all = "camelCase")]
 pub enum AutomationRecordingMode {
     Studio,
-    Instant,
 }
 
 #[derive(Serialize, Deserialize, Type, Debug, Clone)]

@@ -380,9 +380,7 @@ mod tests {
             platform: None,
             project_path: Default::default(),
             pretty_name: "Animated gradient test".into(),
-            sharing: None,
             inner: RecordingMetaInner::Studio(Box::new(meta.clone())),
-            upload: None,
         };
         RenderVideoConstants::new_with_options(
             RenderOptions {

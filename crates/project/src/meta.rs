@@ -75,14 +75,6 @@ pub struct AudioGapSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct SharingMeta {
-    pub id: String,
-    pub link: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_hash: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum Platform {
     MacOS,
     Windows,
@@ -109,68 +101,17 @@ pub struct RecordingMeta {
     #[serde(skip_serializing, default)]
     pub project_path: PathBuf,
     pub pretty_name: String,
-    #[serde(default)]
-    pub sharing: Option<SharingMeta>,
     #[serde(flatten)]
     pub inner: RecordingMetaInner,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub upload: Option<UploadMeta>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Type, Debug)]
-pub struct S3UploadMeta {
-    pub id: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, specta::Type, Debug)]
-pub struct VideoUploadInfo {
-    pub id: String,
-    pub link: String,
-    pub config: S3UploadMeta,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(tag = "state")]
-pub enum UploadMeta {
-    MultipartUpload {
-        video_id: String,
-        file_path: PathBuf,
-        pre_created_video: VideoUploadInfo,
-        recording_dir: PathBuf,
-    },
-    SinglePartUpload {
-        video_id: String,
-        recording_dir: PathBuf,
-        file_path: PathBuf,
-        screenshot_path: PathBuf,
-    },
-    SegmentUpload {
-        video_id: String,
-        pre_created_video: VideoUploadInfo,
-        recording_dir: PathBuf,
-    },
-    Failed {
-        error: String,
-    },
-    Complete,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(untagged, rename_all = "camelCase")]
 pub enum RecordingMetaInner {
     Studio(Box<StudioRecordingMeta>),
-    Instant(InstantRecordingMeta),
 }
 
 impl specta::Flatten for RecordingMetaInner {}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(untagged, rename_all = "camelCase")]
-pub enum InstantRecordingMeta {
-    InProgress { recording: bool },
-    Failed { error: String },
-    Complete { fps: u32, sample_rate: Option<u32> },
-}
 
 impl RecordingMeta {
     pub fn path(&self, relative: &RelativePathBuf) -> PathBuf {
@@ -307,17 +248,12 @@ impl RecordingMeta {
     }
 
     pub fn output_path(&self) -> PathBuf {
-        match &self.inner {
-            RecordingMetaInner::Instant(_) => self.project_path.join("content/output.mp4"),
-            RecordingMetaInner::Studio(_) => self.project_path.join("output").join("result.mp4"),
-        }
+        self.project_path.join("output").join("result.mp4")
     }
 
     pub fn studio_meta(&self) -> Option<&StudioRecordingMeta> {
-        match &self.inner {
-            RecordingMetaInner::Studio(meta) => Some(meta),
-            _ => None,
-        }
+        let RecordingMetaInner::Studio(meta) = &self.inner;
+        Some(meta)
     }
 
     fn normalize_paths(&mut self) {
@@ -363,7 +299,6 @@ impl RecordingMeta {
                     }
                 }
             },
-            RecordingMetaInner::Instant(_) => {}
         }
     }
 }
@@ -677,11 +612,8 @@ impl MultipleSegment {
             }
         };
 
-        let pointer_ids = if let RecordingMetaInner::Studio(studio_meta) = &meta.inner {
-            studio_meta.pointer_cursor_ids()
-        } else {
-            HashSet::new()
-        };
+        let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
+        let pointer_ids = studio_meta.pointer_cursor_ids();
 
         let pointer_ids_ref = (!pointer_ids.is_empty()).then_some(&pointer_ids);
         data.stabilize_short_lived_cursor_shapes(pointer_ids_ref, SHORT_CURSOR_SHAPE_DEBOUNCE_MS);
@@ -1211,10 +1143,8 @@ mod display_notch_tests {
     }
 
     fn studio(meta: &RecordingMeta) -> &StudioRecordingMeta {
-        match &meta.inner {
-            RecordingMetaInner::Studio(studio) => studio,
-            RecordingMetaInner::Instant(_) => panic!("expected a studio recording"),
-        }
+        let RecordingMetaInner::Studio(studio) = &meta.inner;
+        studio
     }
 
     /// Every recording made before this field existed must still load.

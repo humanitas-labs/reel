@@ -12,23 +12,8 @@ use crate::results::{
 use super::ffprobe_ext::{FrameGapReading, probe_frame_gaps};
 use super::recording_helpers::{
     StudioRecordingOptions, materialize_camera_outputs, materialize_display_outputs,
-    record_instant_camera_for_duration, record_studio_for_duration,
+    record_studio_for_duration,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RecordMode {
-    Studio,
-    Instant,
-}
-
-impl RecordMode {
-    fn label(&self) -> &'static str {
-        match self {
-            RecordMode::Studio => "studio",
-            RecordMode::Instant => "instant",
-        }
-    }
-}
 
 // A continuous-capture stream (camera, or screen while it is changing) advances
 // one frame per ~median interval. The historical wall-clock-rebase A/V bug
@@ -46,11 +31,7 @@ const GAP_ABS_FLOOR_SECS: f64 = 0.12;
 // while a clean recording's boundary frame sits at ~1.0x.
 const BOUNDARY_RATIO_THRESHOLD: f64 = 1.5;
 
-pub async fn run_suite(
-    hardware: &DiscoveredHardware,
-    duration: u64,
-    mode: RecordMode,
-) -> Result<TestResults> {
+pub async fn run_suite(hardware: &DiscoveredHardware, duration: u64) -> Result<TestResults> {
     let start = Instant::now();
     let mut results = Vec::new();
 
@@ -68,37 +49,7 @@ pub async fn run_suite(
         return Ok(empty_results(hardware, start.elapsed()));
     };
 
-    // Instant-mode probe records camera-only, so a camera is mandatory there.
-    if mode == RecordMode::Instant && !has_camera {
-        warn!("No camera available - skipping instant-mode AV step probe");
-        let mut skipped = TestResult::new(
-            "av-step-instant-no-camera".to_string(),
-            "A/V timeline step probe (instant, no camera)".to_string(),
-            TestCaseConfig {
-                display: None,
-                camera: None,
-                audio: None,
-                duration_secs: duration,
-            },
-        );
-        skipped.set_skipped("No camera device available for instant-mode probe");
-        results.push(skipped);
-        return Ok(TestResults {
-            meta: ResultsMeta {
-                timestamp: Utc::now(),
-                config_name: "AV Step Suite".to_string(),
-                config_path: None,
-                platform: hardware.system_info.platform.clone(),
-                system: hardware.system_info.clone(),
-                cap_version: None,
-            },
-            hardware: Some(hardware.clone()),
-            summary: ResultsSummary::from_results(&results, start.elapsed()),
-            results,
-        });
-    }
-
-    if mode == RecordMode::Studio && !has_camera {
+    if !has_camera {
         warn!("No camera available - the camera stream is the most reliable signal for this check");
     }
 
@@ -124,10 +75,9 @@ pub async fn run_suite(
     };
 
     let mut result = TestResult::new(
-        format!("av-step-{}-{}-{}fps", mode.label(), display.id, target_fps),
+        format!("av-step-studio-{}-{}fps", display.id, target_fps),
         format!(
-            "A/V timeline step probe ({} mode) {} @{}fps (camera={})",
-            mode.label(),
+            "A/V timeline step probe (studio mode) {} @{}fps (camera={})",
             display.resolution_label(),
             target_fps,
             has_camera
@@ -135,15 +85,7 @@ pub async fn run_suite(
         test_config,
     );
 
-    match run_measurement(
-        display.id.clone(),
-        target_fps,
-        duration_secs,
-        has_camera,
-        mode,
-    )
-    .await
-    {
+    match run_measurement(display.id.clone(), target_fps, duration_secs, has_camera).await {
         Ok(reading) => {
             let median = reading.median_interval_secs.max(1e-9);
             let gap_ratio = reading.max_gap_secs / median;
@@ -303,64 +245,39 @@ async fn run_measurement(
     target_fps: u32,
     duration_secs: u64,
     include_camera: bool,
-    mode: RecordMode,
 ) -> Result<StepReading> {
-    match mode {
-        RecordMode::Studio => {
-            let opts = StudioRecordingOptions {
-                display_id: Some(display_id),
-                target_fps,
-                duration: Duration::from_secs(duration_secs),
-                include_mic: true,
-                include_camera,
-                include_system_audio: false,
-                fragmented: false,
-            };
+    let opts = StudioRecordingOptions {
+        display_id: Some(display_id),
+        target_fps,
+        duration: Duration::from_secs(duration_secs),
+        include_mic: true,
+        include_camera,
+        include_system_audio: false,
+        fragmented: false,
+    };
 
-            let artifacts = record_studio_for_duration(opts).await?;
+    let artifacts = record_studio_for_duration(opts).await?;
 
-            // The camera stream is the authoritative signal: a camera never
-            // legitimately stops delivering frames, so any large mid-stream gap
-            // there is the bug.
-            let camera_outputs = materialize_camera_outputs(&artifacts.project_path);
-            if let Some(camera) = camera_outputs.first() {
-                persist_if_requested(camera, "studio camera");
-                let gap = probe_frame_gaps(camera)
-                    .with_context(|| format!("probing camera frame gaps: {}", camera.display()))?;
-                return Ok(StepReading::from_gap("studio camera".to_string(), gap));
-            }
-
-            // Fall back to the display stream when no camera was recorded.
-            let display_outputs = materialize_display_outputs(&artifacts.project_path)?;
-            let display = display_outputs.first().ok_or_else(|| {
-                anyhow::anyhow!("no camera.mp4 or display.mp4 produced after recording")
-            })?;
-            persist_if_requested(display, "studio display");
-            let gap = probe_frame_gaps(display)
-                .with_context(|| format!("probing display frame gaps: {}", display.display()))?;
-            Ok(StepReading::from_gap("studio display".to_string(), gap))
-        }
-        RecordMode::Instant => {
-            let artifacts = record_instant_camera_for_duration(
-                target_fps,
-                Duration::from_secs(duration_secs),
-                true,
-            )
-            .await?;
-
-            persist_if_requested(&artifacts.output_path, "instant camera output");
-            let gap = probe_frame_gaps(&artifacts.output_path).with_context(|| {
-                format!(
-                    "probing instant output.mp4 frame gaps: {}",
-                    artifacts.output_path.display()
-                )
-            })?;
-            Ok(StepReading::from_gap(
-                "instant camera (output.mp4)".to_string(),
-                gap,
-            ))
-        }
+    // The camera stream is the authoritative signal: a camera never
+    // legitimately stops delivering frames, so any large mid-stream gap
+    // there is the bug.
+    let camera_outputs = materialize_camera_outputs(&artifacts.project_path);
+    if let Some(camera) = camera_outputs.first() {
+        persist_if_requested(camera, "studio camera");
+        let gap = probe_frame_gaps(camera)
+            .with_context(|| format!("probing camera frame gaps: {}", camera.display()))?;
+        return Ok(StepReading::from_gap("studio camera".to_string(), gap));
     }
+
+    // Fall back to the display stream when no camera was recorded.
+    let display_outputs = materialize_display_outputs(&artifacts.project_path)?;
+    let display = display_outputs
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("no camera.mp4 or display.mp4 produced after recording"))?;
+    persist_if_requested(display, "studio display");
+    let gap = probe_frame_gaps(display)
+        .with_context(|| format!("probing display frame gaps: {}", display.display()))?;
+    Ok(StepReading::from_gap("studio display".to_string(), gap))
 }
 
 fn empty_results(hardware: &DiscoveredHardware, elapsed: Duration) -> TestResults {

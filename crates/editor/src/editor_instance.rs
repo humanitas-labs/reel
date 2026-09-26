@@ -346,9 +346,7 @@ impl EditorInstance {
         let recording_meta = cap_project::RecordingMeta::load_for_project(&project_path)
             .map_err(|e| format!("Failed to load recording meta: {e}"))?;
 
-        let RecordingMetaInner::Studio(meta) = &recording_meta.inner else {
-            return Err("Cannot edit non-studio recordings".to_string());
-        };
+        let RecordingMetaInner::Studio(meta) = &recording_meta.inner;
 
         meta.ensure_ordinary_media_access(&project_path)?;
 
@@ -1355,10 +1353,8 @@ impl EditorInstance {
     }
 
     fn get_studio_meta(&self) -> &StudioRecordingMeta {
-        match &self.meta.inner {
-            RecordingMetaInner::Studio(meta) => meta.as_ref(),
-            _ => panic!("Not a studio recording"),
-        }
+        let RecordingMetaInner::Studio(meta) = &self.meta.inner;
+        meta.as_ref()
     }
 
     pub fn get_total_frames(&self, fps: u32) -> u32 {

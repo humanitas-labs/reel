@@ -744,9 +744,7 @@ async fn run_tests_on_recording(
     let meta = RecordingMeta::load_for_project(recording_path)
         .map_err(|e| anyhow::anyhow!("Failed to load recording metadata: {}", e))?;
 
-    let RecordingMetaInner::Studio(studio_meta) = &meta.inner else {
-        bail!("Not a studio recording");
-    };
+    let RecordingMetaInner::Studio(studio_meta) = &meta.inner;
 
     let segment_count = match studio_meta.as_ref() {
         StudioRecordingMeta::SingleSegment { .. } => 1,

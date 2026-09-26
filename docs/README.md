@@ -6,7 +6,7 @@
 | `strip-treemap.png`  | Static render of the treemap. Regenerate with the command below.                                                                                                                                                     |
 | `tape.png`           | The cassette artwork used at the top of the README.                                                                                                                                                                  |
 
-The fork plan and its execution log live in `.plan/LOCAL_FORK_PLAN.md`. Agent instructions are in `AGENTS.md`.
+Agent instructions are in `AGENTS.md`. The history of the fork is in the git log.
 
 Regenerate the PNG:
 

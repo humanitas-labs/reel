@@ -122,8 +122,8 @@ Rework:
 - [x] Dependency audit: `cargo tree -p cap-desktop | grep -iE "reqwest|hyper|sentry|opentelemetry|updater|oauth"` shows nothing beyond what the captions exception needs. `bun pm ls` shows no `@openpanel`, `@ts-rest`, `plugin-http`, `plugin-updater`.
 - [x] Build gates: `cargo clippy --workspace --all-targets -- -D warnings`, `bun run lint`, `bun run typecheck`, `bun run tauri:build` producing a signed-for-local-use `.app` and `.dmg`.
 - [x] Runtime audit (idle run: one localhost listener for the frame socket, zero external sockets; a full record/edit/export pass is still to be done by hand): launch the release build, record a studio clip with camera and mic, take a screenshot, edit, generate captions, export to file and clipboard. During the whole session watch `nettop -p <pid>` or Little Snitch. Expected outbound connections: zero, or one GitHub fetch on first caption use if that exception is kept.
-- [ ] Copy existing recordings from the old app data dir into the new one and confirm they open in the editor.
-- [ ] Squash or keep the phase commits, tag `v1.0-local`.
+- [x] Copied the four recordings (455 MB) from `so.cap.desktop.dev` into `com.andjones.reel`; opening them in the editor is still to be confirmed by hand.
+- [x] Phase commits kept; tagged `v1.0-local`.
 
 ## Parallel execution (from the Phase 2 checkpoint)
 

@@ -4,7 +4,7 @@
 
 Reel is a private, offline-only macOS screen recorder for a single user. It records the screen, a window or an area with optional camera and microphone, takes screenshots, and opens every recording in a local editor for trimming, captions and export. Nothing leaves the machine: there are no accounts, uploads, share links, update checks, telemetry or crash reporting.
 
-Reel is derived from [Cap](https://github.com/CapSoftware/Cap) and is distributed under the same AGPLv3 licence (see `LICENSE`). The web app, cloud features, instant mode and every other server-backed code path have been removed rather than disabled.
+Reel is a modified version of [Cap](https://github.com/CapSoftware/Cap) by Cap Software, Inc., forked from upstream commit `40f44a803` in September 2026 and distributed under the same licence terms (AGPLv3, with the `cap-camera*` and `scap-*` crates under MIT; see `LICENSE`). The web app, cloud features, instant mode and every other server-backed code path have been removed rather than disabled. Reel is not affiliated with or endorsed by Cap Software.
 
 ## Build
 
@@ -22,7 +22,7 @@ bun run dev:desktop
 bun run tauri:build
 ```
 
-The `.app` is written under `apps/desktop/src-tauri/target/release/bundle/`.
+The `.app` and a `.dmg` are written under `target/release/bundle/`.
 
 ## Layout
 
@@ -31,4 +31,4 @@ The `.app` is written under `apps/desktop/src-tauri/target/release/bundle/`.
 - `crates/*`: recording, camera, rendering, editing and export crates.
 - `packages/ui-solid`: shared Solid components and icons.
 
-See `AGENTS.md` for coding conventions and the checks to run before committing.
+See `AGENTS.md` for coding conventions and the checks to run before committing, and `docs/` for the fork notes and the strip treemap.

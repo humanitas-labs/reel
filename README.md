@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/tape.png" width="360" alt="Tape"></p>
+<p align="center"><img src="docs/tape.png" width="240" alt="Tape"></p>
 
 # Tape
 
